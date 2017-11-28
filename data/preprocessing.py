@@ -57,9 +57,13 @@ def htrDataProcess(data_pointer, out_size, out_folder, classes,
                    line_width=10, line_color=128, processes=2):
     """ function to proces all data into a htr dataset"""
     formats = ['tif','tiff', 'png', 'jpg', 'jpeg','bmp']
+    #--- Create output folder if not exist
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     img_fh = open(out_folder + '/img.lst','w')
     label_fh = open(out_folder + '/label.lst','w')
     img_list = []
+
     for ext in formats:
         img_list.extend(glob.glob(data_pointer + '/*.' + ext))
     processed_data = []
