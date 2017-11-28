@@ -1,0 +1,26 @@
+# Compiled source #
+###################
+*.com
+*.class
+*.o
+*.so
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# backup files gen by editors #
+###############################
+*.pyo
+*.pyc
+*~
+
+# to_delete temp #
+##################
+to_delete/
