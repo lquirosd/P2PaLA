@@ -32,7 +32,7 @@ def _processData(params):
     if (os.path.isfile(img_dir + '/page/' + img_id + '.xml')):
         xml_path = img_dir + '/page/' + img_id + '.xml'
     else:
-        logging.critical('No xml found for file {}'.format(img_path))
+        logger.critical('No xml found for file {}'.format(img_path))
         raise Exception("Execution stop due Critical Errors")
     
     img_data = cv2.imread(img_path)
@@ -40,25 +40,29 @@ def _processData(params):
     res_img = cv2.resize(img_data,(out_size[1],
                          out_size[0]),
                          interpolation=cv2.INTER_CUBIC)
-    new_img_path = out_folder+'/'+img_id+'.png'
+    new_img_path = os.path.join(out_folder,img_id+'.png')
     cv2.imwrite(new_img_path,res_img)
     #--- get label
     gt_data = pageData(xml_path)
     reg_mask = gt_data.buildMask(out_size,'TextRegion', classes)
     lin_mask = gt_data.buildBaselineMask(out_size,line_color,line_width)
     label = np.array((lin_mask,reg_mask))
-    new_label_path = out_folder + '/' + img_id + '.pickle'
+    new_label_path = os.path.join(out_folder, img_id + '.pickle')
     fh = open(new_label_path,'w')
     pickle.dump(label,fh,-1)
     fh.close()
     return (new_img_path, new_label_path)
 
 def htrDataProcess(data_pointer, out_size, out_folder, classes,
-                   line_width=10, line_color=128, processes=2):
+                   line_width=10, line_color=128, processes=2,
+                   logger=None):
     """ function to proces all data into a htr dataset"""
+    #--- TODO: move this function to a class and use logger in shiled functions
+    logger = logger or logging.getLogger(__name__) 
     formats = ['tif','tiff', 'png', 'jpg', 'jpeg','bmp']
     #--- Create output folder if not exist
     if not os.path.exists(out_folder):
+        logger.debug('Creating {} folder...'.format(out_folder))
         os.makedirs(out_folder)
     img_fh = open(out_folder + '/img.lst','w')
     label_fh = open(out_folder + '/label.lst','w')
@@ -79,7 +83,7 @@ def htrDataProcess(data_pointer, out_size, out_folder, classes,
     except Exception as e:
         pool.close()
         pool.terminate()
-        print(e)
+        logger.error(e)
     else:
         pool.close()
         pool.join()
