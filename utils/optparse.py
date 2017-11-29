@@ -48,6 +48,11 @@ class arguments(object):
                                  help='Logging level')
         self.parser.add_argument('--baseline_evaluator', default=baseline_evaluator_cmd,
                                  type=str, help='Command to evaluate baselines')
+        self.parser.add_argument('--num_workers', default=n_cpus, type=int,
+                                 help="""Number of workers used to proces 
+                                 input data. If not provided all available
+                                 CPUs will be used.
+                                 """)
         #----------------------------------------------------------------------
         #----- Define preprocessing data parameters
         #----------------------------------------------------------------------
@@ -72,15 +77,12 @@ class arguments(object):
         #----------------------------------------------------------------------
         self.parser.add_argument('--batch_size', default=6, type=int,
                                  help='Number of images per mini-batch')
-        self.parser.add_argument('--num_workers', default=n_cpus, type=int,
-                                 help="""Number of workers used to proces 
-                                 input data. If not provided all available
-                                 CPUs will be used.
-                                 """)
         self.parser.add_argument('--suffle_data', default=True, type=bool,
                                  help='Suffle data during training')
         self.parser.add_argument('--pin_memory', default=True, type=bool,
                                  help='Pin memmory before send to GPU')
+        self.parser.add_argument('--flip_img', default=False, type=bool,
+                                 help='Randomly flip images during training')
         #----------------------------------------------------------------------
         #----- Define NN parameters
         #----------------------------------------------------------------------
@@ -113,8 +115,10 @@ class arguments(object):
         #----------------------------------------------------------------------
         self.parser.add_argument('--do_train', default=True, type=bool,
                                  help='Run train stage')
-        self.parser.add_argument('--cont_train', default=None, type=str,
+        self.parser.add_argument('--cont_train', default=False, type=bool,
                                  help='Continue training using this model')
+        self.parser.add_argument('--prev_model', default=None, type=str,
+                                 help='Use this previously trainned model')
         self.parser.add_argument('--tr_data', default='./data/train/', type=str,
                                  help="""Train data folder. Train images are
                                  expected there, also PAGE XML files are
