@@ -7,20 +7,18 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 import cv2
+import logging
 
 try:
     import cPickle as pickle
 except:
     import pickle #--- To handle data imports/export
 
-#--- TODO: Add logging
-
-
 class htrDataset(Dataset):
     """
     Class to handle HTR dataset feeding
     """
-    def __init__(self,img_lst,label_lst, transform=None):
+    def __init__(self,img_lst,label_lst, transform=None, logger=None):
         """
         Args:
             img_lst (string): Path to the list of images to be processed
@@ -28,6 +26,7 @@ class htrDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        self.logger = logger or logging.getLogger(__name__)
         self.transform = transform
         #--- save all paths into a single dic
         self.img_paths = open(img_lst,'r').readlines()
@@ -45,10 +44,12 @@ class htrDataset(Dataset):
         #--- cv2 image: H x W x C
         #--- torch image: C X H X W
         #---Keep arrays on float32 format for GPU compatibility
-        image = (image.transpose((2,0,1))/255).astype(np.float32)
+        #--- Normalize to [-1,1] range
+        image = (((2/255)*image.transpose((2,0,1)))-1).astype(np.float32)
         fh = open(self.label_paths[idx],'r')
         label = pickle.load(fh)
-        label = (label/255).astype(np.float32)
+        #--- norm to [-1,1] 
+        label = (((2/255)*label)-1).astype(np.float32)
         fh.close()
         sample = {'image': image, 'label': label, 'id': self.img_ids[idx]}
         if self.transform:
