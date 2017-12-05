@@ -26,7 +26,7 @@ def _processData(params):
     """
     Resize image and extract mask from PAGE file 
     """
-    (img_path,out_size,out_folder,classes,line_width,line_color) = params
+    (img_path,out_size,out_folder,classes,line_width,line_color,use_square) = params
     img_id = os.path.splitext(os.path.basename(img_path))[0]
     img_dir = os.path.dirname(img_path)
     if (os.path.isfile(img_dir + '/page/' + img_id + '.xml')):
@@ -40,13 +40,24 @@ def _processData(params):
     res_img = cv2.resize(img_data,(out_size[1],
                          out_size[0]),
                          interpolation=cv2.INTER_CUBIC)
+    if use_square:
+        max_side = np.max(out_size)
+        top = bottom = abs(int((out_size[0] - max_side)/2))
+        left = right = abs(int((out_size[1] - max_side)/2))
+        res_img = cv2.copyMakeBorder(res_img,top,bottom,left,right,cv2.BORDER_CONSTANT,value=[0,0,0])
+
     new_img_path = os.path.join(out_folder,img_id+'.png')
     cv2.imwrite(new_img_path,res_img)
     #--- get label
     gt_data = pageData(xml_path)
     reg_mask = gt_data.buildMask(out_size,'TextRegion', classes)
     lin_mask = gt_data.buildBaselineMask(out_size,line_color,line_width)
-    label = np.array((lin_mask,reg_mask))
+    if use_square:
+        label = np.zeros((2,max_side,max_side),dtype=np.uint8)
+        label[1,top:max_side-bottom,left:max_side-right] = reg_mask
+        label[0,top:max_side-bottom,left:max_side-right] = lin_mask
+    else:
+        label = np.array((lin_mask,reg_mask))
     new_label_path = os.path.join(out_folder, img_id + '.pickle')
     fh = open(new_label_path,'w')
     pickle.dump(label,fh,-1)
@@ -55,7 +66,7 @@ def _processData(params):
 
 def htrDataProcess(data_pointer, out_size, out_folder, classes,
                    line_width=10, line_color=128, processes=2,
-                   logger=None):
+                   use_square=False, logger=None):
     """ function to proces all data into a htr dataset"""
     #--- TODO: move this function to a class and use logger in shiled functions
     logger = logger or logging.getLogger(__name__) 
@@ -78,7 +89,8 @@ def htrDataProcess(data_pointer, out_size, out_folder, classes,
                                    [out_folder]*l_list,
                                    [classes]*l_list,
                                    [line_width]*l_list,
-                                   [line_color]*l_list)
+                                   [line_color]*l_list,
+                                   [use_square]*l_list)
         processed_data = pool.map(_processData,params)
     except Exception as e:
         pool.close()
