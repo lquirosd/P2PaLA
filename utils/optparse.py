@@ -59,6 +59,8 @@ class arguments(object):
         general.add_argument('--gpu', default=0, type=int,
                              help=("GPU id. Use -1 to disable. "
                                    "Only 1 GPU setup is available for now ;("))
+        general.add_argument('--seed', default=5, type=int,
+                             help='Set manual seed for generating random numbers')
         general.add_argument('--no_display', default=False, action='store_true',
                              help='Do not display data on TensorBoard')
         general.add_argument('--use_global_log', default='', type=str,
@@ -127,7 +129,7 @@ class arguments(object):
         n_meg.set_defaults(use_gan=True)
         net.add_argument('--gan_layers', default=3, type=int,
                                  help='Number of layers of GAN NN')
-        net.add_argument('--loss_lambda', default=0.001, type=float,
+        net.add_argument('--loss_lambda', default=100, type=float,
                                 help='Lambda weith to copensate GAN vs G loss')
         net.add_argument('--g_loss', default='L1', type=str,
                                  choices=['L1','MSE','smoothL1'],
@@ -156,6 +158,8 @@ class arguments(object):
                                  help='Continue training using this model')
         train.add_argument('--prev_model', default=None, type=str,
                                  help='Use this previously trainned model')
+        train.add_argument('--save_rate', default=10, type=int,
+                                 help='Save checkpoint each --save_rate epochs')
         train.add_argument('--tr_data', default='./data/train/', type=str,
                                  help="""Train data folder. Train images are
                                  expected there, also PAGE XML files are
@@ -300,8 +304,9 @@ class arguments(object):
 
     def _buildColorRegions(self):
         n_class = len(self.opts.regions)
-        class_gap = int(256/n_class)
-        class_id = class_gap /2
+        #--- div by n_cloass + 1 becouse background is another "class"
+        class_gap = int(256/n_class+1)
+        class_id = int(class_gap /2)
         class_dic = OrderedDict()
         for c in self.opts.regions:
             class_dic[c] = class_id
@@ -341,6 +346,11 @@ class arguments(object):
         self.opts.log_file = self.opts.work_dir +'/' + self.opts.exp_name + '.log'
         self.opts.regions_colors = self._buildColorRegions()
         self.opts.merged_regions = self._buildMergedRegions()
+        #--- add merde regions to color dic, so parent and merged will share the same color
+        for parent,childs in self.opts.merged_regions.items():
+            for child in childs:
+                self.opts.regions_colors[child] = self.opts.regions_colors[parent]
+
         self.opts.checkpoints = os.path.join(self.opts.work_dir, 'checkpoints/')
 
         return self.opts
