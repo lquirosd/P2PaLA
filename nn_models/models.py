@@ -20,8 +20,8 @@ class buildUnet(nn.Module):
         #self.gpu_ids = gpu_ids
         
         model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=None, is_center=True,i_id='center')
-        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_1')
-        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_2')
+        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_1',useDO=True)
+        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_2',useDO=True)
         model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_3')
         #model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_4')
         
@@ -31,6 +31,10 @@ class buildUnet(nn.Module):
         model = uSkipBlock(input_nc, ngf, output_nc, inner_slave=model, is_out=True, i_id='out')
         #---keep model
         self.model = model
+        self.num_params = 0
+        for param in self.model.parameters():
+            self.num_params += param.numel()
+
 
     def forward(self, input_x):
         """
@@ -46,7 +50,7 @@ class buildUnet(nn.Module):
 class uSkipBlock(nn.Module):
     """
     """
-    def __init__(self,input_nc,inner_nc,output_nc,inner_slave,is_center=False,is_out=False,i_id='0'):
+    def __init__(self,input_nc,inner_nc,output_nc,inner_slave,is_center=False,is_out=False,i_id='0',useDO=False):
         super(uSkipBlock,self).__init__()
         self.is_out = is_out
         self.name = str(input_nc) + str(inner_nc) + str(output_nc) + str(is_center) + str(is_out)
@@ -55,36 +59,37 @@ class uSkipBlock(nn.Module):
         if (is_out):
             #--- Handle out block
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
-                               stride=2,padding=1,bias=True)
+                               stride=2,padding=1,bias=False)
             d_conv = nn.ConvTranspose2d(2*inner_nc, output_nc,kernel_size=4,
-                                        stride=2,padding=1,bias=True)
+                                        stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
             model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Tanh()]
         elif (is_center):
             #--- Handle center case
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
-                               stride=2,padding=1,bias=True)
+                               stride=2,padding=1,bias=False)
             e_non_lin = nn.LeakyReLU(0.2,True)
             d_conv = nn.ConvTranspose2d(inner_nc, output_nc,kernel_size=4,
-                                        stride=2,padding=1,bias=True)
+                                        stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
-            model = [e_non_lin, e_conv, d_non_lin,d_conv,d_norm]
+            model = [e_non_lin, e_conv, d_non_lin,d_conv,d_norm, nn.Dropout(0.5)]
         else:
             #--- Handle internal case
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
-                               stride=2,padding=1,bias=True)
+                               stride=2,padding=1,bias=False)
             e_non_lin = nn.LeakyReLU(0.2,True)
             e_norm = nn.BatchNorm2d(inner_nc)
             d_conv = nn.ConvTranspose2d(2 * inner_nc, output_nc,kernel_size=4,
-                                        stride=2,padding=1,bias=True)
+                                        stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
             #--- TODO: alow to turn on and off dropout
             model = [e_non_lin, e_conv, e_norm,
                      inner_slave,
-                     d_non_lin,d_conv,d_norm,
-                     nn.Dropout(0.5)]
+                     d_non_lin,d_conv,d_norm]
+            if useDO:
+                model = model + [nn.Dropout(0.5)]
         
         self.model = nn.Sequential(*model)
     def forward(self,input_x):
@@ -113,7 +118,8 @@ class buildGAN(nn.Module):
         """
         super(buildGAN,self).__init__()
         model = [nn.Conv2d(input_nc+output_nc,ngf,kernel_size=4,
-                          stride=2,padding=1,bias=True)]
+                          stride=2,padding=1,bias=False)]
+        model = model + [nn.LeakyReLU(0.2,True)]
         nf_mult = 1
         nf_prev = 1
         for n in xrange(1,n_layers):
@@ -121,7 +127,7 @@ class buildGAN(nn.Module):
             nf_mult = min(2**n,8)
             model = model + [
                            nn.Conv2d(ngf*nf_prev,ngf*nf_mult,kernel_size=4,
-                                     stride=2,padding=1,bias=True),
+                                     stride=2,padding=1,bias=False),
                            nn.BatchNorm2d(ngf*nf_mult),
                            nn.LeakyReLU(0.2,True)
                            ]
@@ -130,14 +136,17 @@ class buildGAN(nn.Module):
         nf_mult = min(2**n_layers,8)
         model = model + [
                         nn.Conv2d(ngf*nf_prev,ngf*nf_mult,kernel_size=4,
-                                 stride=1,padding=1,bias=True),
+                                 stride=1,padding=1,bias=False),
                         nn.BatchNorm2d(ngf*nf_mult),
                         nn.LeakyReLU(0.2,True),
                         nn.Conv2d(ngf*nf_mult,1,kernel_size=4,stride=1,
-                                  padding=1,bias=True),
+                                  padding=1,bias=False),
                         nn.Sigmoid()
                         ]
         self.model = nn.Sequential(*model)
+        self.num_params = 0
+        for param in self.model.parameters():
+            self.num_params += param.numel()
 
     def forward(self,input_x):
         """
@@ -159,6 +168,15 @@ class lossGAN(nn.Module):
         return self.loss
 #------------------------------------------------------------------------------
 #-------------      END ADVERSARIAL DEFINITION
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+#-------------      BEGIN LOSS FUNCTIONS
+#------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+#-------------      END LOSS FUNCTIONS
 #------------------------------------------------------------------------------
 
 class dummyModel(nn.Module):
@@ -199,7 +217,7 @@ def weights_init_normal(m):
     # print(classname)
     if classname.find('Conv') != -1:
         init.uniform(m.weight.data, 0.0, 0.02)
-        init.constant(m.bias.data, 0.0)
+        #init.constant(m.bias.data, 0.0)
     elif classname.find('Linear') != -1:
         init.uniform(m.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
