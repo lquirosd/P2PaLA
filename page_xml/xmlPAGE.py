@@ -12,11 +12,12 @@ import re
 
 class pageData():
     """ Class to process PAGE xml files"""
-    def __init__(self,filepath):
+    def __init__(self,filepath,logger=None):
         """
         Args:
             filepath (string): Path to PAGE-xml file.
         """
+        self.logger = logger or logging.getLogger(__name__) 
         self.filepath = filepath
         self.name = os.path.splitext(os.path.basename(self.filepath))[0]
         self.parse()
@@ -53,7 +54,7 @@ class pageData():
                       element.attrib['custom']).group(1)
         except:
             e_type = None
-            logging.warning('No region type defined for {} at {}'.format(
+            self.logger.warning('No region type defined for {} at {}'.format(
                             self.getId(element),
                             self.name))
         return e_type
@@ -88,7 +89,9 @@ class pageData():
             e_type = self.getRegionType(element)
             if (e_type == None or e_type not in color_dic):
                 e_color = 175
-                logging.warning('Element type "{}"undefined on color dic, set to default=175'.format(e_type))
+                self.logger.warning('Element type "{}"undefined on color dic, set to default=175'.format(e_type))
+                print('Element type "{}"undefined on color dic, set to default=175'.format(e_type))
+
             else:
                 e_color = color_dic[e_type]
             #--- get element coords
@@ -120,14 +123,14 @@ class pageData():
         """
         text_node = element.find('./' + self.base + 'TextEquiv')
         if (text_node == None):
-            logging.warning('No Text node found for line {} at {}'.format(
+            self.logger.warning('No Text node found for line {} at {}'.format(
                             self.getId(element),
                             self.name))
             return ''
         else:
             text_data = text_node.find('*').text
             if (text_data == None):
-                logging.warning('No text found in line {} at {}'.format(
+                self.logger.warning('No text found in line {} at {}'.format(
                                 self.getId(element),
                                 self.name))
                 return ''
@@ -166,7 +169,7 @@ class pageData():
                       element.attrib['custom']).group(1)
         except:
             e_ro = None
-            logging.warning('No region readingOrder defined for {} at {}'.format(
+            self.logger.warning('No region readingOrder defined for {} at {}'.format(
                             self.getId(element),
                             self.name))
         return e_ro
@@ -199,8 +202,4 @@ class pageData():
             for ro_line in sorted(lines):
                 ro_line + 1
                 
-
-
-
-
 
