@@ -9,7 +9,7 @@ from math import log
 import multiprocessing
 import logging
 
-class arguments(object):
+class Arguments(object):
     """
     """
     def __init__(self, logger=None):
@@ -254,7 +254,7 @@ class arguments(object):
     def _str_to_bool(self,data):
         """
         Nice way to handle bool flags:
-        from: 
+        from: https://stackoverflow.com/a/43357954
         """
         if data.lower() in ('yes', 'true', 't', 'y', '1'):
             return True
@@ -295,18 +295,19 @@ class arguments(object):
             raise argparse.ArgumentTypeError('{} folder does not exists'.format(pointer))
     
     def _check_to_int_array(self,data):
-        #--- check if size is 2^n compliant
+        """check is size is 256 multiple"""
         data = int(data)
         if (data > 0 and data%256 == 0):
             return data
         else:
             raise argparse.ArgumentTypeError('Image size must be multiple of 256: {} is not'.format(data))
 
-    def _buildColorRegions(self):
+    def _build_class_regions(self):
+        """given a list of regions assign a equaly separated class to each one"""
         n_class = len(self.opts.regions)
-        #--- div by n_cloass + 1 becouse background is another "class"
+        #--- div by n_claass + 1 because background is another "class"
         class_gap = int(256/n_class+1)
-        class_id = int(class_gap /2)
+        class_id = int(class_gap /2) + class_gap
         class_dic = OrderedDict()
         for c in self.opts.regions:
             class_dic[c] = class_id
@@ -314,7 +315,8 @@ class arguments(object):
 
         return class_dic
 
-    def _buildMergedRegions(self):
+    def _build_merged_regions(self):
+        """build dic of regions to be merged into a single class"""
         if self.opts.merge_regions == None:
             return None
         to_merge = {}
@@ -333,7 +335,12 @@ class arguments(object):
         return to_merge
 
     def parse(self):
+        """Perform arguments parsing"""
         #--- Parse initialization + command line arguments
+        #--- Arguments priority stack:
+        #---    1) command line arguments
+        #---    2) config file arguments
+        #---    3) default arguments
         self.opts = self.parser.parse_args()
         #--- Parse config file if defined
         if self.opts.config != None:
@@ -341,11 +348,14 @@ class arguments(object):
             self.opts = self.parser.parse_args(['@' + self.opts.config], namespace=self.opts)
             self.opts = self.parser.parse_args(namespace=self.opts)
         #--- Preprocess some input variables
+        #--- enable/disable
         self.opts.use_gpu = self.opts.gpu != -1
+        #--- set logging data
         self.opts.log_level_id = getattr(logging, self.opts.log_level.upper())
         self.opts.log_file = self.opts.work_dir +'/' + self.opts.exp_name + '.log'
-        self.opts.regions_colors = self._buildColorRegions()
-        self.opts.merged_regions = self._buildMergedRegions()
+        #--- build classes
+        self.opts.regions_colors = self._build_class_regions()
+        self.opts.merged_regions = self._build_merged_regions()
         #--- add merde regions to color dic, so parent and merged will share the same color
         for parent,childs in self.opts.merged_regions.items():
             for child in childs:
@@ -355,6 +365,7 @@ class arguments(object):
 
         return self.opts
     def __str__(self):
+        """pretty print handle"""
         data = '------------ Options -------------'
         try:
             for k,v in sorted(vars(self.opts).items()):
