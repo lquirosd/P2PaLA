@@ -68,7 +68,7 @@ class Arguments(object):
         general.add_argument('--log_comment', default='', type=str,
                              help='Add this commaent to TensorBoard logs name')
         #----------------------------------------------------------------------
-        #----- Define preprocessing data parameters
+        #----- Define processing data parameters
         #----------------------------------------------------------------------
         data = self.parser.add_argument_group('Data Related Parameters')
         data.add_argument('--img_size', default=[1024,768], nargs=2,
@@ -87,6 +87,13 @@ class Arguments(object):
                                  help="""Merge regions on PAGE file into a single one.
                                  Format --merge_regions r1:r2,r3 r4:r5, then r2 and r3
                                  will be merged into r1 and r5 into r4""")
+        data.add_argument('--approx_alg', default='optimal', type=str,
+                          choices=['optimal','trace'],
+                          help="""Algorith to approximate baseline to N segments.
+                                  optimal: [Perez & Vidal, 1994] algorithm.
+                                  trace: Use trace normalization algorithm.""")
+        data.add_argument('--num_segments', default=4, type=int,
+                          help='Number of segments of the output baseline')
         #----------------------------------------------------------------------
         #----- Define dataloader parameters
         #----------------------------------------------------------------------

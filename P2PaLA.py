@@ -474,6 +474,9 @@ def main():
                     va_data.gen_page(v_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
+                                   opts.regions,
+                                   approx_alg=opts.approx_alg,
+                                   num_segments=opts.num_segments,
                                    out_folder=res_path)
         writer.add_graph(nnG, y_gen)
     #--------------------------------------------------------------------------
@@ -549,6 +552,9 @@ def main():
                 te_data.gen_page(te_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
+                                   opts.regions,
+                                   approx_alg=opts.approx_alg,
+                                   num_segments=opts.num_segments,
                                    out_folder=res_path)
     #--------------------------------------------------------------------------
     #---    PRODUCTION INFERENCE
@@ -618,6 +624,8 @@ def main():
                 pr_data.gen_page(pr_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
+                                   approx_alg=opts.approx_alg,
+                                   num_segments=opts.num_segments,
                                    out_folder=res_path)
                 
 
