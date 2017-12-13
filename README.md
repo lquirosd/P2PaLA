@@ -12,7 +12,8 @@ Requirements
     * [PyTorch](http://pytorch.org/) (0.2.0\_4)
     * [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9)
     * [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0)
-    * NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal modification, but untested)
+    * NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal
+    modification, but untested)
 
 Usage
 =====
