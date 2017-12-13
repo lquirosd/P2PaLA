@@ -8,6 +8,7 @@ Description
 
 Requirements
 ===========
+
     - Linux (OSX may work, but untested.)
     - [PyTorch](http://pytorch.org/) (0.2.0\_4)
     - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9)
