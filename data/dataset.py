@@ -18,7 +18,7 @@ class htrDataset(Dataset):
     """
     Class to handle HTR dataset feeding
     """
-    def __init__(self,img_lst,label_lst, transform=None, logger=None):
+    def __init__(self,img_lst,label_lst=None,w_lst=None, transform=None, logger=None):
         """
         Args:
             img_lst (string): Path to the list of images to be processed
@@ -31,8 +31,13 @@ class htrDataset(Dataset):
         #--- save all paths into a single dic
         self.img_paths = open(img_lst,'r').readlines()
         self.img_paths = [x.rstrip() for x in self.img_paths]
-        self.label_paths = open(label_lst, 'r').readlines()
-        self.label_paths = [x.rstrip() for x in self.label_paths]
+        self.build_label = False
+        if label_lst != None:
+            self.label_paths = open(label_lst, 'r').readlines()
+            self.label_paths = [x.rstrip() for x in self.label_paths]
+            self.w_paths = open(w_lst, 'r').readlines()
+            self.w_paths = [x.rstrip() for x in self.w_paths]
+            self.build_label = True
         self.img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
 
     def __len__(self):
@@ -46,12 +51,18 @@ class htrDataset(Dataset):
         #---Keep arrays on float32 format for GPU compatibility
         #--- Normalize to [-1,1] range
         image = (((2/255)*image.transpose((2,0,1)))-1).astype(np.float32)
-        fh = open(self.label_paths[idx],'r')
-        label = pickle.load(fh)
-        #--- norm to [-1,1] 
-        label = (((2/255)*label)-1).astype(np.float32)
-        fh.close()
-        sample = {'image': image, 'label': label, 'id': self.img_ids[idx]}
+        if self.build_label:
+            fh = open(self.label_paths[idx],'r')
+            label = pickle.load(fh)
+            #--- norm to [-1,1] 
+            label = (((2/255)*label)-1).astype(np.float32)
+            fh.close()
+            fh = open(self.w_paths[idx],'r')
+            w_label = pickle.load(fh)
+            fh.close()
+            sample = {'image': image, 'label': label, 'w':w_label, 'id': self.img_ids[idx]}
+        else:
+            sample = {'image':image, 'id':self.img_ids[idx]}
         if self.transform:
             sample = self.transform(sample)
 
@@ -60,11 +71,10 @@ class htrDataset(Dataset):
 class toTensor(object):
     """Convert dataset sample (ndarray) to tensor"""
     def __call__(self,sample):
-        #--- TODO: check if its better to do not copy label array
-        image, label = sample['image'], sample['label']
-        return {'image':torch.from_numpy(image),
-                'label':torch.from_numpy(label),
-                'id':sample['id']}
+        for k,v in sample.iteritems():
+            if type(v) is np.ndarray:
+                sample[k] = torch.from_numpy(v)
+        return sample
 
 class randomFlip(object):
     """randomly flip image in a sample"""
@@ -74,14 +84,14 @@ class randomFlip(object):
 
     def __call__(self,sample):
         if torch.rand(1)[0] < self.prob:
-            image, label = sample['image'], sample['label']
             #--- TODO: Check why is a must to copy the array here
             #--- if not error raises: RuntimeError: some of the strides of a
             #---    given numpy array are negative. This is currently not 
             #---    supported, but will be added in future releases.
-            image = np.flip(image, self.axis).copy()
-            label = np.flip(label, self.axis).copy()
-            return {'image': image, 'label': label, 'id':sample['id']}
+            for k,v in sample.iteritems():
+                if type(v) is np.ndarray:
+                    sample[k] = np.flip(v, self.axis).copy()
+            return sample
         else:
             return sample
 
