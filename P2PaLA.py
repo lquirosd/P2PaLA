@@ -22,7 +22,6 @@ from tensorboardX import SummaryWriter
 from utils.optparse import Arguments as arguments
 from nn_models import models
 from data import dataset
-#--- TODO: change name of this module to process
 from data import imgprocess as dp
 
 #--- reduce option isn't supported until pytorch 0.3.*
@@ -32,7 +31,7 @@ loss_dic = {'L1':torch.nn.L1Loss(size_average=False),#reduce=False),
             'smoothL1':torch.nn.SmoothL1Loss(size_average=True)}
 
 def tensor2img(image_tensor, imtype=np.uint8):
-    #--- function just for debug, sont use on production stage
+    #--- function just for debug, do not use on production stage
     #-- @@@@@@
     image_numpy = image_tensor.cpu().float().numpy()
     #if image_numpy.shape[0] == 1:
@@ -176,7 +175,7 @@ def main():
     ch.setLevel(logging.INFO)
     logger.debug(in_args)
     #--- Init torch random 
-    #--- This two are suposed to be merged in the future, fro now keep boot
+    #--- This two are suposed to be merged in the future, for now keep boot
     torch.manual_seed(opts.seed)
     torch.cuda.manual_seed_all(opts.seed)
     #--- Init model variable
@@ -584,7 +583,7 @@ def main():
             nnG.eval()
 
         #--- get prod data
-        if opts.te_img_list == '':
+        if opts.prod_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.prod_data))
             pr_data = dp.htrDataProcess(
                                          opts.prod_data,
@@ -602,7 +601,7 @@ def main():
         transform = transforms.Compose([dataset.toTensor()])
 
         prod_data = dataset.htrDataset(img_lst=opts.prod_img_list,
-                                        transform=transform)
+                                       transform=transform)
         prod_dataloader = DataLoader(prod_data,
                                       batch_size=opts.batch_size,
                                       shuffle=opts.shuffle_data,
