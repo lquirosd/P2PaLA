@@ -9,6 +9,7 @@ import time
 import shutil
 import numpy as np
 import cv2
+import errno
 
 import torch
 from torchvision import transforms, utils
@@ -18,16 +19,21 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from tensorboardX import SummaryWriter
 
-from utils.optparse import arguments
+from utils.optparse import Arguments as arguments
 from nn_models import models
 from data import dataset
-from data import preprocessing as dp
+#--- TODO: change name of this module to process
+from data import imgprocess as dp
 
-loss_dic = {'L1':torch.nn.L1Loss(size_average=False),
+#--- reduce option isn't supported until pytorch 0.3.*
+#--- TODO: install v0.3.0 or implement L1loss by myself
+loss_dic = {'L1':torch.nn.L1Loss(size_average=False),#reduce=False),
             'MSE':torch.nn.MSELoss(size_average=True),
             'smoothL1':torch.nn.SmoothL1Loss(size_average=True)}
 
 def tensor2img(image_tensor, imtype=np.uint8):
+    #--- function just for debug, sont use on production stage
+    #-- @@@@@@
     image_numpy = image_tensor.cpu().float().numpy()
     #if image_numpy.shape[0] == 1:
     #    image_numpy = np.tile(image_numpy, (3, 1, 1))
@@ -57,7 +63,7 @@ def save_checkpoint(state, is_best, opts, logger, epoch):
                                                     opts.best_criterion +
                                                     'criterion.pth.tar', str(epoch)))
 
-
+#--- TODO check all related to label_w
 def check_inputs(opts, logger):
     """
     check if some inputs are correct
@@ -173,6 +179,8 @@ def main():
     #--- This two are suposed to be merged in the future, fro now keep boot
     torch.manual_seed(opts.seed)
     torch.cuda.manual_seed_all(opts.seed)
+    #--- Init model variable
+    nnG = None
     #--- configure TensorBoard display
     if not opts.no_display:
         import socket
@@ -201,18 +209,23 @@ def main():
         #--- Get Train Data
         if opts.tr_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.tr_data))
-            (opts.tr_img_list, opts.tr_label_list) = dp.htrDataProcess(
-                                                        opts.tr_data,
-                                                        opts.img_size,
-                                                        opts.work_dir + '/data/train/',
-                                                        opts.regions_colors,
-                                                        line_width=opts.line_width,
-                                                        line_color=opts.line_color,
-                                                        processes=opts.num_workers,
-                                                        logger=logger,use_square=False)
+            tr_data = dp.htrDataProcess(
+                                         opts.tr_data,
+                                         opts.img_size,
+                                         opts.work_dir + '/data/train/',
+                                         opts.regions_colors,
+                                         line_width=opts.line_width,
+                                         line_color=opts.line_color,
+                                         processes=opts.num_workers,
+                                         logger=logger)
+            tr_data.pre_process()
+            opts.tr_img_list = tr_data.img_list
+            opts.tr_label_list = tr_data.label_list
+            opts.tr_w_list = tr_data.w_list
 
         train_data = dataset.htrDataset(img_lst=opts.tr_img_list,
                                         label_lst=opts.tr_label_list,
+                                        w_lst=opts.tr_w_list,
                                         transform=transform)
         train_dataloader = DataLoader(train_data,
                                       batch_size=opts.batch_size,
@@ -223,18 +236,23 @@ def main():
         if opts.do_val:
             if opts.val_img_list == '':
                 logger.info('Preprocessing data from{}'.format(opts.val_data))
-                (opts.val_img_list, opts.val_label_list) = dp.htrDataProcess(
-                                                        opts.val_data,
-                                                        opts.img_size,
-                                                        opts.work_dir + '/data/val/',
-                                                        opts.regions_colors,
-                                                        line_width=opts.line_width,
-                                                        line_color=opts.line_color,
-                                                        processes=opts.num_workers,
-                                                        logger=logger,use_square=False)
+                va_data = dp.htrDataProcess(
+                                             opts.val_data,
+                                             opts.img_size,
+                                             opts.work_dir + '/data/val/',
+                                             opts.regions_colors,
+                                             line_width=opts.line_width,
+                                             line_color=opts.line_color,
+                                             processes=opts.num_workers,
+                                             logger=logger)
+                va_data.pre_process()
+                opts.val_img_list = va_data.img_list
+                opts.val_label_list = va_data.label_list
+                opts.val_w_list = va_data.w_list
 
             val_data = dataset.htrDataset(img_lst=opts.val_img_list,
                                           label_lst=opts.val_label_list,
+                                          w_lst=opts.val_w_list,
                                           transform=transform)
             val_dataloader = DataLoader(val_data,
                                         batch_size=opts.batch_size,
@@ -304,6 +322,11 @@ def main():
             logger.debug('DIS Network, number of parameters: {}'.format(nnD.num_params))
 
         #--- Do the actual train
+        #--- TODO: save model under "best" criterion 
+        #--- TODO: compute statistical boostrap to define if a model is
+        #---    statistically better than previous
+        best_val = np.inf
+        best_tr = np.inf
         for epoch in xrange(opts.epochs):
             epoch_start = time.time()
             epoch_lossG = 0
@@ -315,12 +338,16 @@ def main():
                 optimizerG.zero_grad()
                 x = Variable(sample['image'])
                 y_gt = Variable(sample['label'])
+                #w = Variable(sample['w'], requires_grad=False)
                 if opts.use_gpu:
                     x = x.cuda()
                     y_gt = y_gt.cuda()
+                    #w = w.cuda()
                 y_gen = nnG(x)
                 g_loss = lossG(y_gen,y_gt)
-                g_loss = g_loss / y_gen.data[0].numel()
+                #g_loss = torch.mul(g_loss, w)
+                #g_loss = torch.sum(g_loss)
+                g_loss = g_loss * (1/y_gen.data[0].numel())
                 if opts.use_gan:
                     optimizerD.zero_grad()
                     real_D = torch.cat([x,y_gt],1)
@@ -367,7 +394,8 @@ def main():
                         v_label = v_label.cuda()
                     v_y = nnG(v_img)
                     v_loss = lossG(v_y, v_label)
-                    val_loss += v_loss.data[0]
+                    v_loss = v_loss * (1/v_y.data[0].numel())
+                    val_loss += v_loss.data[0] / v_y.data.size()[0]
                 val_loss = val_loss/v_batch
             #--- Write to Logs
             if not opts.no_display:
@@ -415,7 +443,16 @@ def main():
                         v_t = vutils.make_grid(v_t, normalize=False, scale_each=True)
                         writer.add_image('val/GT', v_t, epoch)
         if opts.do_val:
-            #--- Set model to eval, since 
+            res_path = os.path.join(opts.work_dir, 'results', 'val')
+            try:
+                os.makedirs(res_path + '/page')
+                os.makedirs(res_path + '/mask')
+            except OSError as exc:
+                if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
+                    pass
+                else:
+                    raise
+            #--- Set model to eval, to perform inference step 
             nnG.eval()
             for v_batch,v_sample in enumerate(val_dataloader):
                 #--- set vars to volatile, since bo backward used
@@ -429,26 +466,161 @@ def main():
                 #--- save out as image for visual check
                 for idx,data in enumerate(v_label.data):
                     img = tensor2img(data)
-                    cv2.imwrite(opts.work_dir + '/' + v_ids[idx] +'_gt.png',img)
+                    cv2.imwrite(os.path.join(res_path,
+                                             'mask', v_ids[idx] +'_gt.png'),img)
                 for idx,data in enumerate(v_y.data):
                     img = tensor2img(data)
-                    cv2.imwrite(opts.work_dir + '/' + v_ids[idx] +'_out.png',img)
+                    cv2.imwrite(os.path.join(res_path,
+                                             'mask', v_ids[idx] +'_out.png'),img)
+                    va_data.gen_page(v_ids[idx],
+                                   data.cpu().float().numpy(),
+                                   opts.regions,
+                                   out_folder=res_path)
         writer.add_graph(nnG, y_gen)
-            #if best model under some criteria:
-            #    best_model_wts = model.state_dict()
-            # this will save the state dic to best_model wts
-            # then we cam save it or restore the model to that state
-            #--- TODO: Validate model using: 
-            #                               a) val data
-            #                                   => NN-out to PAGE -> PAGE to val
-            #                               b) G_loss
-            #--- Save model each opts.num_ep_save
-            #--- Save best model 
-            #--- write data to TensorBoard log
-            #--- Test and Prod Stages ... 
+    #--------------------------------------------------------------------------
+    #---    TEST INFERENCE
+    #--------------------------------------------------------------------------
+    if opts.do_test:
+        logger.info('Working on test inference...')
+        res_path = os.path.join(opts.work_dir, 'results', 'test')
+        try:
+            os.makedirs(res_path + '/page')
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
+                pass
+            else:
+                raise
+        logger.info('Results will be saved to {}'.format(res_path))
 
+        if nnG == None:
+            #--- Load Model 
+            nnG = models.buildUnet(opts.input_channels,
+                                   opts.output_channels,
+                                   ngf=opts.cnn_ngf)
+            logger.info('Resumming from model {}'.format(opts.prev_model))
+            checkpoint = torch.load(opts.prev_model)
+            nnG.load_state_dict(checkpoint['nnG_state'])
+            if opts.use_gpu:
+                nnG = nnG.cuda()
+            nnG.eval()
+            logger.debug('GEN Network:\n{}'.format(nnG)) 
+            logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
+        else:
+            logger.debug('Using prevously loaded Generative module for test...')
+            nnG.eval()
 
+        #--- get test data
+        if opts.te_img_list == '':
+            logger.info('Preprocessing data from {}'.format(opts.te_data))
+            te_data = dp.htrDataProcess(
+                                         opts.te_data,
+                                         opts.img_size,
+                                         opts.work_dir + '/data/test/',
+                                         opts.regions_colors,
+                                         line_width=opts.line_width,
+                                         line_color=opts.line_color,
+                                         processes=opts.num_workers,
+                                         logger=logger)
+            te_data.pre_process()
+            opts.te_img_list = te_data.img_list
+            opts.te_label_list = te_data.label_list
+            opts.te_w_list = te_data.w_list
+        
+        transform = transforms.Compose([dataset.toTensor()])
 
+        test_data = dataset.htrDataset(img_lst=opts.te_img_list,
+                                        label_lst=opts.te_label_list,
+                                        w_lst=opts.te_w_list,
+                                        transform=transform)
+        test_dataloader = DataLoader(test_data,
+                                      batch_size=opts.batch_size,
+                                      shuffle=opts.shuffle_data,
+                                      num_workers=opts.num_workers,
+                                      pin_memory=opts.pin_memory)
+        for te_batch,sample in enumerate(test_dataloader):
+            te_x = Variable(sample['image'], volatile=True)
+            te_label = Variable(sample['label'], volatile=True)
+            te_ids = sample['id']
+            if opts.use_gpu:
+                te_x = te_x.cuda()
+                te_label = te_label.cuda()
+            te_y_gen = nnG(te_x)
+            for idx,data in enumerate(te_y_gen.data):
+                #--- TODO: update this function to proccess C-dim tensors
+                te_data.gen_page(te_ids[idx],
+                                   data.cpu().float().numpy(),
+                                   opts.regions,
+                                   out_folder=res_path)
+    #--------------------------------------------------------------------------
+    #---    PRODUCTION INFERENCE
+    #--------------------------------------------------------------------------
+    if opts.do_prod:
+        logger.info('Working on prod inference...')
+        res_path = os.path.join(opts.work_dir, 'results', 'prod')
+        try:
+            os.makedirs(res_path + '/page')
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
+                pass
+            else:
+                raise
+        logger.info('Results will be saved to {}'.format(res_path))
+
+        if nnG == None:
+            #--- Load Model 
+            nnG = models.buildUnet(opts.input_channels,
+                                   opts.output_channels,
+                                   ngf=opts.cnn_ngf)
+            logger.info('Resumming from model {}'.format(opts.prev_model))
+            checkpoint = torch.load(opts.prev_model)
+            nnG.load_state_dict(checkpoint['nnG_state'])
+            if opts.use_gpu:
+                nnG = nnG.cuda()
+            nnG.eval()
+            logger.debug('GEN Network:\n{}'.format(nnG)) 
+            logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
+        else:
+            logger.debug('Using prevously loaded Generative module for prod...')
+            nnG.eval()
+
+        #--- get prod data
+        if opts.te_img_list == '':
+            logger.info('Preprocessing data from {}'.format(opts.prod_data))
+            pr_data = dp.htrDataProcess(
+                                         opts.prod_data,
+                                         opts.img_size,
+                                         opts.work_dir + '/data/prod/',
+                                         opts.regions_colors,
+                                         line_width=opts.line_width,
+                                         line_color=opts.line_color,
+                                         processes=opts.num_workers,
+                                         build_labels=False,
+                                         logger=logger)
+            pr_data.pre_process()
+            opts.prod_img_list = pr_data.img_list
+        
+        transform = transforms.Compose([dataset.toTensor()])
+
+        prod_data = dataset.htrDataset(img_lst=opts.prod_img_list,
+                                        transform=transform)
+        prod_dataloader = DataLoader(prod_data,
+                                      batch_size=opts.batch_size,
+                                      shuffle=opts.shuffle_data,
+                                      num_workers=opts.num_workers,
+                                      pin_memory=opts.pin_memory)
+        for pr_batch,sample in enumerate(prod_dataloader):
+            pr_x = Variable(sample['image'], volatile=True)
+            pr_ids = sample['id']
+            if opts.use_gpu:
+                pr_x = pr_x.cuda()
+            pr_y_gen = nnG(pr_x)
+            for idx,data in enumerate(pr_y_gen.data):
+                #--- TODO: update this function to proccess C-dim tensors
+                pr_data.gen_page(pr_ids[idx],
+                                   data.cpu().float().numpy(),
+                                   opts.regions,
+                                   out_folder=res_path)
+                
 
 if __name__=='__main__':
     main()
