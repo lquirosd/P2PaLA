@@ -474,7 +474,6 @@ def main():
                     va_data.gen_page(v_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
-                                   opts.regions,
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
@@ -551,7 +550,6 @@ def main():
                 #--- TODO: update this function to proccess C-dim tensors
                 te_data.gen_page(te_ids[idx],
                                    data.cpu().float().numpy(),
-                                   opts.regions,
                                    opts.regions,
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
