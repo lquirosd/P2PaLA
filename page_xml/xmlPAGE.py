@@ -24,10 +24,9 @@ class pageData():
         self.creator = 'P2PaLA-PRHLT' if creator==None else creator
         self.XMLNS= {'xmlns':"http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15",
                       'xmlns:xsi':"http://www.w3.org/2001/XMLSchema-instance", 
-                      'xsi:schemaLocation':"""http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 
-                      http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd"""}
+                      'xsi:schemaLocation':'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15' +\
+                      ' http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd'}
         #self.parse()
-
 
     def parse(self):
         """
@@ -50,7 +49,6 @@ class pageData():
         get Id of current element
         """
         return str(element.attrib.get('id'))
-
     
     def get_region_type(self, element):
         """
@@ -81,7 +79,6 @@ class pageData():
                                     'Coords')[0].attrib.get('points').split()
         return np.array([i.split(',') for i in str_coords]).astype(np.int)
 
-
     def build_mask(self,out_size,element_name, color_dic):
         """
         Builds a "image" mask of desired elements
@@ -89,8 +86,6 @@ class pageData():
         size = self.get_size()[::-1]
         mask = np.zeros(out_size, np.uint8)
         scale_factor = out_size/size
-        #mask = np.zeros((int(size[1]*scale_factor),
-        #                 int(size[0]*scale_factor)), np.uint8) + 255
         for element in self.root.findall(".//"+self.base+element_name):
             #--- get element type
             e_type = self.get_region_type(element)

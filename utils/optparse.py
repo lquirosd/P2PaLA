@@ -22,8 +22,6 @@ class Arguments(object):
         regions = ['$tip','$par','$not','$nop','$pag']
         merge_regions = {'$par':['$pac']}
         n_cpus = multiprocessing.cpu_count()
-        baseline_evaluator = '/home/lquirosd/REPOS/TranskribusBaseLineEvaluationScheme/TranskribusBaseLineEvaluationScheme_v0.1.0/TranskribusBaseLineEvaluationScheme-0.1.0-jar-with-dependencies.jar'
-        baseline_evaluator_cmd = ['java', '-jar', baseline_evaluator, '-no_s']
 
         self.parser = argparse.ArgumentParser(description=parser_description,
                                               fromfile_prefix_chars='@',
@@ -35,27 +33,27 @@ class Arguments(object):
         #----------------------------------------------------------------------
         general = self.parser.add_argument_group('General Parameters')
         general.add_argument('--config', default=None, type=str,
-                                 help='Use this configuration file')
+                             help='Use this configuration file')
         general.add_argument('--exp_name', default='layout_exp', type=str, 
-                                 help="""Name of the experiment. Models and data 
+                             help="""Name of the experiment. Models and data 
                                        will be stored into a folder under this name""")
         general.add_argument('--work_dir', default='./work/', 
-                                  type=self._check_out_dir, 
-                                  help='Where to place output data')
+                             type=self._check_out_dir, 
+                             help='Where to place output data')
         #--- Removed, input data should be handled by {tr,val,te,prod}_data variables
         #general.add_argument('--data_path', default='./data/', 
-        #                         type=self._check_in_dir, 
-        #                         help='path to input data')
+        #                     type=self._check_in_dir, 
+        #                     help='path to input data')
         general.add_argument('--log_level', default='INFO', type=str,
-                                 choices=['DEBUG','INFO','WARNING','ERROR','CRITICAL'],
-                                 help='Logging level')
-        general.add_argument('--baseline_evaluator', default=baseline_evaluator_cmd,
-                                 type=str, help='Command to evaluate baselines')
+                             choices=['DEBUG','INFO','WARNING','ERROR','CRITICAL'],
+                             help='Logging level')
+        #general.add_argument('--baseline_evaluator', default=baseline_evaluator_cmd,
+        #                     type=str, help='Command to evaluate baselines')
         general.add_argument('--num_workers', default=n_cpus, type=int,
-                                 help="""Number of workers used to proces 
-                                 input data. If not provided all available
-                                 CPUs will be used.
-                                 """)
+                             help="""Number of workers used to proces 
+                                  input data. If not provided all available
+                                  CPUs will be used.
+                                  """)
         general.add_argument('--gpu', default=0, type=int,
                              help=("GPU id. Use -1 to disable. "
                                    "Only 1 GPU setup is available for now ;("))
@@ -72,21 +70,21 @@ class Arguments(object):
         #----------------------------------------------------------------------
         data = self.parser.add_argument_group('Data Related Parameters')
         data.add_argument('--img_size', default=[1024,768], nargs=2,
-                                 type=self._check_to_int_array, 
-                                 help = "Scale images to this size. Format --img_size H W")
+                          type=self._check_to_int_array, 
+                          help = "Scale images to this size. Format --img_size H W")
         data.add_argument('--line_color', default=128, type=int, 
-                                 help='Draw GT lines using this color, range [1,254]')
+                          help='Draw GT lines using this color, range [1,254]')
         data.add_argument('--line_width', default=10, type=int, 
-                                 help='Draw GT lines using this number of pixels')
+                          help='Draw GT lines using this number of pixels')
         data.add_argument('--regions', default=regions, nargs='+', 
-                                 type=str, 
-                                 help="""List of regions to be extracted. 
-                                 Format: --regions r1 r2 r3 ...""")
+                          type=str, 
+                          help="""List of regions to be extracted. 
+                               Format: --regions r1 r2 r3 ...""")
         data.add_argument('--merge_regions', default=None, nargs='+', 
-                                 type=str, 
-                                 help="""Merge regions on PAGE file into a single one.
-                                 Format --merge_regions r1:r2,r3 r4:r5, then r2 and r3
-                                 will be merged into r1 and r5 into r4""")
+                          type=str, 
+                          help="""Merge regions on PAGE file into a single one.
+                               Format --merge_regions r1:r2,r3 r4:r5, then r2 and r3
+                               will be merged into r1 and r5 into r4""")
         data.add_argument('--approx_alg', default='optimal', type=str,
                           choices=['optimal','trace'],
                           help="""Algorith to approximate baseline to N segments.
@@ -99,91 +97,89 @@ class Arguments(object):
         #----------------------------------------------------------------------
         loader = self.parser.add_argument_group('Data Loader Parameters')
         loader.add_argument('--batch_size', default=6, type=int,
-                                 help='Number of images per mini-batch')
+                            help='Number of images per mini-batch')
         l_meg1 = loader.add_mutually_exclusive_group(required=False)
         l_meg1.add_argument('--shuffle_data', dest='shuffle_data', action='store_true',
-                                 help='Suffle data during training')
+                            help='Suffle data during training')
         l_meg1.add_argument('--no-shuffle_data', dest='shuffle_data', action='store_false',
-                                 help='Do not suffle data during training')
+                            help='Do not suffle data during training')
         l_meg1.set_defaults(shuffle_data=True)
         l_meg2 = loader.add_mutually_exclusive_group(required=False)
         l_meg2.add_argument('--pin_memory', dest='pin_memory', action='store_true',
-                                 help='Pin memory before send to GPU')
+                            help='Pin memory before send to GPU')
         l_meg2.add_argument('--no-pin_memory', dest='pin_memory', action='store_false',
-                                 help='Pin memory before send to GPU')
+                            help='Pin memory before send to GPU')
         l_meg2.set_defaults(pin_memory=True)
         l_meg3 = loader.add_mutually_exclusive_group(required=False)
         l_meg3.add_argument('--flip_img', dest='flip_img', action='store_true',
-                                 help='Randomly flip images during training')
+                            help='Randomly flip images during training')
         l_meg3.add_argument('--no-flip_img', dest='flip_img', action='store_false',
-                                 help='Do not randomly flip images during training')
+                            help='Do not randomly flip images during training')
         l_meg3.set_defaults(flip_img=False)
         #----------------------------------------------------------------------
         #----- Define NN parameters
         #----------------------------------------------------------------------
         net = self.parser.add_argument_group('Neural Networks Parameters')
         net.add_argument('--input_channels', default=3, type=int,
-                                 help='Number of channels of input data')
+                         help='Number of channels of input data')
         net.add_argument('--output_channels', default=2, type=int,
-                                 help='Number of channels of labels')
+                         help="""Number of channels of labels.
+                                 If =1 then only lines will be extracted.""")
         net.add_argument('--cnn_ngf', default=64, type=int,
-                                 help='Number of filters of CNNs')
+                         help='Number of filters of CNNs')
         n_meg = net.add_mutually_exclusive_group(required=False)
         n_meg.add_argument('--use_gan', dest='use_gan', action='store_true',
-                                 help='USE GAN to compute G loss')
+                           help='USE GAN to compute G loss')
         n_meg.add_argument('--no-use_gan', dest='use_gan', action='store_false',
-                                 help='do not use GAN to compute G loss')
+                           help='do not use GAN to compute G loss')
         n_meg.set_defaults(use_gan=True)
         net.add_argument('--gan_layers', default=3, type=int,
-                                 help='Number of layers of GAN NN')
+                         help='Number of layers of GAN NN')
         net.add_argument('--loss_lambda', default=100, type=float,
-                                help='Lambda weith to copensate GAN vs G loss')
+                         help='Lambda weith to copensate GAN vs G loss')
         net.add_argument('--g_loss', default='L1', type=str,
-                                 choices=['L1','MSE','smoothL1'],
-                                 help='Loss function for G NN')
+                         choices=['L1','MSE','smoothL1'],
+                         help='Loss function for G NN')
         #----------------------------------------------------------------------
         #----- Define Optimizer parameters
         #----------------------------------------------------------------------
         optim = self.parser.add_argument_group('Optimizer Parameters')
         optim.add_argument('--adam_lr', default=0.001, type=float,
-                                 help='Initial Lerning rate for ADAM opt')
+                           help='Initial Lerning rate for ADAM opt')
         optim.add_argument('--adam_beta1', default=0.5, type=float,
-                                 help='First ADAM exponential decay rate')
+                           help='First ADAM exponential decay rate')
         optim.add_argument('--adam_beta2', default=0.999, type=float,
-                                 help='Secod ADAM exponential decay rate')
+                           help='Secod ADAM exponential decay rate')
         #----------------------------------------------------------------------
         #----- Define Train parameters
         #----------------------------------------------------------------------
         train = self.parser.add_argument_group('Training Parameters')
         tr_meg = train.add_mutually_exclusive_group(required=False)
         tr_meg.add_argument('--do_train', dest='do_train', action='store_true',
-                                 help='Run train stage')
+                            help='Run train stage')
         tr_meg.add_argument('--no-do_train', dest='do_train', action='store_false',
-                                 help='Do not run train stage')
+                            help='Do not run train stage')
         tr_meg.set_defaults(do_train=True)
         train.add_argument('--cont_train', default=False, action='store_true',
-                                 help='Continue training using this model')
+                           help='Continue training using this model')
         train.add_argument('--prev_model', default=None, type=str,
-                                 help='Use this previously trainned model')
+                           help='Use this previously trainned model')
         train.add_argument('--save_rate', default=10, type=int,
-                                 help='Save checkpoint each --save_rate epochs')
+                           help='Save checkpoint each --save_rate epochs')
         train.add_argument('--tr_data', default='./data/train/', type=str,
-                                 help="""Train data folder. Train images are
-                                 expected there, also PAGE XML files are
-                                 expected to be in --tr_data/page folder
-                                 """)
+                           help="""Train data folder. Train images are
+                                   expected there, also PAGE XML files are
+                                   expected to be in --tr_data/page folder""")
         train.add_argument('--epochs', default=100, type=int,
-                                 help='Number of training epochs')
+                           help='Number of training epochs')
         train.add_argument('--tr_img_list', default='', type=str,
-                                 help="""List to all images ready to be used by NN
-                                 train, if not provide it will be generated from
-                                 original data.
-                                 """)
+                           help="""List to all images ready to be used by NN
+                                   train, if not provide it will be generated from
+                                   original data.""")
         train.add_argument('--tr_label_list', default='', type=str,
-                                 help="""List to all label ready to be used by NN
-                                 train, if not provide it will be generated from
-                                 original data.
-                                 """)
+                           help="""List to all label ready to be used by NN
+                                   train, if not provide it will be generated from
+                                   original data.""")
         #----------------------------------------------------------------------
         #----- Define Test parameters
         #----------------------------------------------------------------------

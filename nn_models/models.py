@@ -177,40 +177,6 @@ class lossGAN(nn.Module):
 
 #------------------------------------------------------------------------------
 #-------------      END LOSS FUNCTIONS
-#------------------------------------------------------------------------------
-
-class dummyModel(nn.Module):
-    """
-    doc goes here :)
-    """
-    def __init__(self,input_nc,output_nc,
-                 ngf=64, num_folds=8,
-                 norm_layer=nn.BatchNorm2d,
-                 use_dropout=False,
-                 gpu_ids=[]):
-        super(dummyModel,self).__init__()
-        self.gpu_ids = gpu_ids
-        #---build the network
-        model = nn.Sequential(nn.Conv2d(input_nc,ngf,5,stride=1,padding=2),
-                              nn.ReLU(),
-                              nn.Conv2d(ngf,ngf*2,5,1,2),
-                              nn.ReLU(),
-                              nn.Conv2d(ngf*2,output_nc,5,1,2),
-                              nn.Tanh()
-                             )
-        #---Save model
-        self.model = model
-
-    def forward(self, input_x):
-        """
-        ;)
-        """
-        #--- parallelize if GPU available and inputs are float
-        if self.gpu_ids and isinstance(input_x.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input_x, self.gpu_ids)
-        else:
-            return self.model(input_x)
-        #return self.model(input_x)
 
 def weights_init_normal(m):
     classname = m.__class__.__name__

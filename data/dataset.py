@@ -60,6 +60,10 @@ class htrDataset(Dataset):
             fh = open(self.w_paths[idx],'r')
             w_label = pickle.load(fh)
             fh.close()
+            #--- force array to be a 3D tensor as needed by conv2d
+            if label.ndim == 2:
+                label = np.expand_dims(label, 0)
+                w_label = np.expand_dims(w_label, 0)
             sample = {'image': image, 'label': label, 'w':w_label, 'id': self.img_ids[idx]}
         else:
             sample = {'image':image, 'id':self.img_ids[idx]}

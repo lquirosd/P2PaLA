@@ -12,7 +12,7 @@ import cv2
 import errno
 
 import torch
-from torchvision import transforms, utils
+from torchvision import transforms
 from torchvision import  utils as vutils
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -33,13 +33,17 @@ loss_dic = {'L1':torch.nn.L1Loss(size_average=False),#reduce=False),
 def tensor2img(image_tensor, imtype=np.uint8):
     #--- function just for debug, do not use on production stage
     #-- @@@@@@
-    image_numpy = image_tensor.cpu().float().numpy()
+    i_dim = image_tensor.size()
+    ex_dim = torch.ones(3-i_dim[0],i_dim[1],i_dim[2])
+    ex_dim = ex_dim.cuda()
+    v_o = torch.cat((image_tensor,ex_dim),dim=0)
+    image_numpy = v_o.cpu().float().numpy()
     #if image_numpy.shape[0] == 1:
     #    image_numpy = np.tile(image_numpy, (3, 1, 1))
-    temp = np.ones((3,image_numpy.shape[1],image_numpy.shape[2]))
-    temp[0,:,:] = image_numpy[0,:,:]
-    temp[1,:,:] = image_numpy[1,:,:]
-    image_numpy = temp
+    #temp = np.ones((3,image_numpy.shape[1],image_numpy.shape[2]))
+    #temp[0,:,:] = image_numpy[0,:,:]
+    #temp[1,:,:] = image_numpy[1,:,:]
+    #image_numpy = temp
     #image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
     image_numpy = ((np.transpose(image_numpy, (1, 2, 0)))+1) * 127.5
     return image_numpy.astype(imtype)
@@ -49,18 +53,14 @@ def save_checkpoint(state, is_best, opts, logger, epoch):
     Save current model to checkpoints dir
     """
     #--- borrowed from: https://github.com/pytorch/examples/blob/master/imagenet/main.py#L139
-    torch.save(state, opts.checkpoints + '/checkpoint.pth.tar')
-    logger.info('Checkpoint saved to {} at epoch {}'.format(opts.checkpoints +
-                '/checkpoint.pth.tar', str(epoch)))
+    out_file = os.path.join(opts.checkpoints, 'checkpoint.pth.tar')
+    torch.save(state, out_file)
+    logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
     if is_best:
-        shutil.copyfile(opts.checkpoints + '/checkpoint.pth.tar', 
-                        opts.checkpoints + '/best_under' +
-                        opts.best_criterion +
-                        'criterion.pth.tar')
-        logger.info('Best model saved to {} at epoch {}'.format(opts.checkpoints + 
-                                                    '/best_under' + 
-                                                    opts.best_criterion +
-                                                    'criterion.pth.tar', str(epoch)))
+        best_file = os.path.join(opts.checkpoints,
+                    'best_under' + opts.best_criterion + 'criterion.pth.tar')
+        shutil.copyfile(out_file, best_file)
+        logger.info('Best model saved to {} at epoch {}'.format(best_file, str(epoch)))
 
 #--- TODO check all related to label_w
 def check_inputs(opts, logger):
@@ -181,30 +181,35 @@ def main():
     #--- Init model variable
     nnG = None
     #--- configure TensorBoard display
-    if not opts.no_display:
-        import socket
-        from datetime import datetime
-        if opts.use_global_log:
-            run_dir = opts.use_global_log
-        else:
-            run_dir = os.path.join(opts.work_dir, 'runs')
-        log_dir = os.path.join(run_dir, 
+    opts.img_size = np.array(opts.img_size, dtype=np.int)
+    #--------------------------------------------------------------------------
+    #-----  TRAIN STEP
+    #--------------------------------------------------------------------------
+    if opts.do_train:
+        train_start = time.time()
+        logger.info('Working on training stage...')
+        #--- display is used only on training step
+        if not opts.no_display:
+            import socket
+            from datetime import datetime
+            if opts.use_global_log:
+                run_dir = opts.use_global_log
+            else:
+                run_dir = os.path.join(opts.work_dir, 'runs')
+            log_dir = os.path.join(run_dir, 
                                datetime.now().strftime('%b%d_%H-%M-%S')+
                                '_'+socket.gethostname()+ opts.log_comment)
                                     
-        writer = SummaryWriter(log_dir=log_dir) 
-        logger.info('TensorBoard log will be stored at {}'.format(log_dir))
-        logger.info('run: tensorboard --logdir {}'.format(run_dir))
+            writer = SummaryWriter(log_dir=log_dir) 
+            logger.info('TensorBoard log will be stored at {}'.format(log_dir))
+            logger.info('run: tensorboard --logdir {}'.format(run_dir))
     
-    #--- Build transforms
-    if opts.flip_img:
-        transform = transforms.Compose([dataset.randomFlip(axis=2, prob=0.5),
-                                        dataset.toTensor()])
-    else:
-        transform = transforms.Compose([dataset.toTensor()])
-    opts.img_size = np.array(opts.img_size, dtype=np.int)
-    if opts.do_train:
-        logger.info('Working on training stage...')
+        #--- Build transforms
+        if opts.flip_img:
+            transform = transforms.Compose([dataset.randomFlip(axis=2, prob=0.5),
+                                            dataset.toTensor()])
+        else:
+            transform = transforms.Compose([dataset.toTensor()])
         #--- Get Train Data
         if opts.tr_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.tr_data))
@@ -216,6 +221,7 @@ def main():
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,
                                          processes=opts.num_workers,
+                                         only_lines=opts.output_channels == 1,
                                          logger=logger)
             tr_data.pre_process()
             opts.tr_img_list = tr_data.img_list
@@ -243,6 +249,7 @@ def main():
                                              line_width=opts.line_width,
                                              line_color=opts.line_color,
                                              processes=opts.num_workers,
+                                             only_lines=opts.output_channels == 1,
                                              logger=logger)
                 va_data.pre_process()
                 opts.val_img_list = va_data.img_list
@@ -421,7 +428,7 @@ def main():
                 save_checkpoint(state, False, opts, logger, epoch)
                 if not opts.no_display:
                     dim = y_gen.data.size()
-                    ex_dim = torch.ones(dim[0],1,dim[2],dim[3])
+                    ex_dim = torch.ones(dim[0],3-dim[1],dim[2],dim[3])
                     if opts.use_gpu:
                         ex_dim = ex_dim.cuda()
                     o = torch.cat((y_gen.data,ex_dim),dim=1)
@@ -432,7 +439,7 @@ def main():
                     writer.add_image('train/GT', t, epoch)
                     if opts.do_val:
                         v_dim = v_y.data.size()
-                        v_ex_dim = torch.ones(v_dim[0],1,v_dim[2],v_dim[3])
+                        v_ex_dim = torch.ones(v_dim[0],3-v_dim[1],v_dim[2],v_dim[3])
                         if opts.use_gpu:
                             v_ex_dim = v_ex_dim.cuda()
                         v_o = torch.cat((v_y.data,v_ex_dim),dim=1)
@@ -441,7 +448,9 @@ def main():
                         v_t = torch.cat((v_label.data,v_ex_dim),dim=1)
                         v_t = vutils.make_grid(v_t, normalize=False, scale_each=True)
                         writer.add_image('val/GT', v_t, epoch)
+        logger.info('Trining stage done. total time taken: {}'.format(time.time()-train_start))
         if opts.do_val:
+            logger.info('Working on validation infernce...')
             res_path = os.path.join(opts.work_dir, 'results', 'val')
             try:
                 os.makedirs(res_path + '/page')
@@ -478,6 +487,7 @@ def main():
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
         writer.add_graph(nnG, y_gen)
+        writer.close()
     #--------------------------------------------------------------------------
     #---    TEST INFERENCE
     #--------------------------------------------------------------------------
@@ -521,6 +531,7 @@ def main():
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,
                                          processes=opts.num_workers,
+                                         only_lines=opts.output_channels == 1,
                                          logger=logger)
             te_data.pre_process()
             opts.te_img_list = te_data.img_list
@@ -597,6 +608,7 @@ def main():
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,
                                          processes=opts.num_workers,
+                                         only_lines=opts.output_channels == 1,
                                          build_labels=False,
                                          logger=logger)
             pr_data.pre_process()
@@ -618,13 +630,15 @@ def main():
                 pr_x = pr_x.cuda()
             pr_y_gen = nnG(pr_x)
             for idx,data in enumerate(pr_y_gen.data):
-                #--- TODO: update this function to proccess C-dim tensors
+                #--- TODO: update this function to proccess C-dim tensors at GPU
                 pr_data.gen_page(pr_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
+
+    logger.info('All Done...')
                 
 
 if __name__=='__main__':

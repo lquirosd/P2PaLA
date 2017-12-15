@@ -28,28 +28,28 @@ class htrDataProcess():
     def __init__(self,data_pointer, out_size, out_folder, classes,
                  line_width=10, line_color=128, processes=2,
                  approx_alg=None, num_segments=4,
-                 build_labels=True,logger=None):
+                 build_labels=True, only_lines=False, logger=None):
         """ function to proces all data into a htr dataset"""
-        #--- TODO: move this function to a class and use logger in shiled functions
-        self.logger = logger or logging.getLogger(__name__) 
-        self.formats = ['tif','tiff', 'png', 'jpg', 'jpeg','bmp']
+        self.logger = logging.getLogger(__name__) if logger==None else logger 
+        #--- file formats from opencv imread supported formats
+        #--- any issue see: https://docs.opencv.org/3.0-beta/modules/imgcodecs/doc/reading_and_writing_images.html#imread
+        self.formats = ['tif','tiff', 'png', 'jpg', 'jpeg', 'JPG','bmp']
         self.data_pointer = data_pointer
         self.out_size = out_size
         self.out_folder = out_folder
         self.classes = classes
-        self.th_span = (classes[classes.keys()[1]]-classes[classes.keys()[0]])/2 
+        self.th_span = 64 if only_lines else (classes[classes.keys()[1]]-classes[classes.keys()[0]])/2 
         self.line_width = line_width
         self.line_color = line_color
         self.processes = processes
         self.approx_alg = approx_alg
         self.num_segments = num_segments
         self.build_labels = build_labels
+        self.only_lines = only_lines
         #--- Create output folder if not exist
         if not os.path.exists(self.out_folder):
             self.logger.debug('Creating {} folder...'.format(self.out_folder))
             os.makedirs(self.out_folder)
-        #img_fh = open(out_folder + '/img.lst','w')
-        #label_fh = open(out_folder + '/label.lst','w')
         self.img_paths = []
 
         for ext in self.formats:
@@ -69,9 +69,10 @@ class htrDataProcess():
                                [self.classes]*l_list,
                                [self.line_width]*l_list,
                                [self.line_color]*l_list,
-                               [self.build_labels]*l_list)
-            #params = itertools.izip(self.img_list)
+                               [self.build_labels]*l_list,
+                               [self.only_lines]*l_list)
             #--- keep _processData out of the class in order to be pickable
+            #--- Pool do not support not pickable objects
             #--- TODO: move func inside the class, and pass logger to it
             self.processed_data = pool.map(_processData,params)
         except Exception as e:
@@ -90,7 +91,7 @@ class htrDataProcess():
             self.w_list = self.out_folder + '/label_w.lst'
         self.img_list = self.out_folder + '/img.lst'
 
-    def gen_page(self,img_id,data, reg_list, out_folder='./',
+    def gen_page(self,img_id,data, reg_list=None, out_folder='./',
                  approx_alg=None, num_segments=None):
         """
         """
@@ -111,26 +112,33 @@ class htrDataProcess():
         page = pageData(os.path.join(out_folder, 'page', img_id + '.xml'),
                         logger=self.logger)
         page.new_page(img_name, str(o_rows), str(o_cols)) 
-
-        lines = np.zeros(data[0].shape,dtype='uint8')
+        if self.only_lines:
+            l_data = data[0]
+            reg_list = ['full_page']
+            colors = {'full_page':128}
+            r_data = np.zeros(l_data.shape,dtype='uint8')
+        else:
+            l_data = data[0]
+            r_data = data[1]
+            colors = self.classes
+        lines = np.zeros(l_data.shape,dtype='uint8')
         #--- data comes on [-1, 1] range, but colors are in [0,255]
         #--- apply threshold over two class layeri, bg=-1
         l_color = (-1 - ((self.line_color*(2/255))-1))/2
-        lines[data[0] > l_color] = 1
-        reg_mask = np.zeros(data[1].shape,dtype='uint8')
-        lin_mask = np.zeros(data[1].shape,dtype='uint8')
+        lines[l_data > l_color] = 1
+        reg_mask = np.zeros(l_data.shape,dtype='uint8')
+        lin_mask = np.zeros(l_data.shape,dtype='uint8')
         r_id = 0
         kernel = np.ones((5,5),np.uint8)
 
         #--- get regions and lines for each class
-        #for reg,r_color in self.classes.iteritems():
         for reg in reg_list:
-            r_color = self.classes[reg]
+            r_color = colors[reg]
             #--- fill the array is faster then create a new one or mult by 0
             reg_mask.fill(0)
             lim_inf = ((r_color - self.th_span)*(2/255)) - 1
             lim_sup = ((r_color + self.th_span)*(2/255)) - 1
-            reg_mask[np.where((data[1] > lim_inf) & (data[1] < lim_sup))] = 1
+            reg_mask[np.where((r_data > lim_inf) & (r_data < lim_sup))] = 1
             _ , contours, hierarchy = cv2.findContours(reg_mask,
                                                    cv2.RETR_EXTERNAL,
                                                    cv2.CHAIN_APPROX_SIMPLE)
@@ -156,7 +164,6 @@ class htrDataProcess():
                 cv2.fillConvexPoly(lin_mask,points=cnt, color=(1,1,1))
                 lin_mask = cv2.erode(lin_mask,kernel,iterations = 1)
                 lin_mask = cv2.dilate(lin_mask,kernel,iterations = 1)
-                #reg_lines = np.logical_and(lines,lin_mask).astype(np.uint8) * 255
                 reg_lines = lines * lin_mask
                 #--- search for the lines
                 _, l_cont, l_hier = cv2.findContours(reg_lines,
@@ -251,7 +258,8 @@ def _processData(params):
     """
     Resize image and extract mask from PAGE file 
     """
-    (img_path,out_size,out_folder,classes,line_width,line_color,build_labels) = params
+    (img_path,out_size,out_folder,classes,
+        line_width,line_color,build_labels, only_lines) = params
     img_id = os.path.splitext(os.path.basename(img_path))[0]
     img_dir = os.path.dirname(img_path)
 
@@ -273,16 +281,23 @@ def _processData(params):
             raise Exception("Execution stop due Critical Errors")
         gt_data = pageData(xml_path)
         gt_data.parse()
-        reg_mask = gt_data.build_mask(out_size,'TextRegion', classes)
-        unq,idx = np.unique(reg_mask, return_inverse=True)
-        f_idx = np.bincount(idx)
-        reg_class_norm = (1/f_idx[idx]).reshape(reg_mask.shape)
+        #--- build lines mask
         lin_mask = gt_data.build_baseline_mask(out_size,line_color,line_width)
         unq,idx = np.unique(lin_mask, return_inverse=True)
         f_idx = np.bincount(idx)
         lin_class_norm = (1/f_idx[idx]).reshape(lin_mask.shape)
-        label = np.array((lin_mask,reg_mask))
-        label_w = np.array((lin_class_norm,reg_class_norm),dtype=np.float32)
+        #--- buid regions mask
+        if not only_lines:
+            reg_mask = gt_data.build_mask(out_size,'TextRegion', classes)
+            unq,idx = np.unique(reg_mask, return_inverse=True)
+            f_idx = np.bincount(idx)
+            reg_class_norm = (1/f_idx[idx]).reshape(reg_mask.shape)
+            label = np.array((lin_mask,reg_mask))
+            label_w = np.array((lin_class_norm,reg_class_norm),dtype=np.float32)
+        else:
+            label = lin_mask
+            label_w = lin_class_norm.astype(np.float32)
+
         new_label_path = os.path.join(out_folder, img_id + '.pickle')
         new_label_w_path = os.path.join(out_folder, img_id + '_w.pickle')
         fh = open(new_label_path,'w')
