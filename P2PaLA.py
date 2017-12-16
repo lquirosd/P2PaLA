@@ -450,7 +450,7 @@ def main():
                         writer.add_image('val/GT', v_t, epoch)
         logger.info('Trining stage done. total time taken: {}'.format(time.time()-train_start))
         if opts.do_val:
-            logger.info('Working on validation infernce...')
+            logger.info('Working on validation inference...')
             res_path = os.path.join(opts.work_dir, 'results', 'val')
             try:
                 os.makedirs(res_path + '/page')

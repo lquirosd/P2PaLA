@@ -224,7 +224,6 @@ class htrDataProcess():
         _,cols = bImg.shape
         #--- remove black halo around the image
         bImg[bMsk[:,:,0]==0] = 255
-        cv2.imwrite('test_image.png',bImg)
         Cs= np.cumsum(abs(bImg-255), axis=0)
         maxPoints=np.argmax(Cs, axis=0)
         Lmsk = np.zeros(bImg.shape)
