@@ -1,4 +1,4 @@
-P2PaLA :scroll:
+P2PaLA
 ======
 
 Page to [PAGE](http://www.primaresearch.org/tools/PAGELibraries) Layout Analysis (P2PaLA) is a toolkit for Document Layout Analysis based on Neural Networks.
@@ -14,6 +14,7 @@ If you find this toolkit useful in your research, please cite:
   howpublished = {\url{https://github.com/lquirosd/P2PaLA}},
 }
 ```
+
 Requirements
 ===========
 
