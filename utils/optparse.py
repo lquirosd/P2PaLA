@@ -80,7 +80,7 @@ class Arguments(object):
                           type=str, 
                           help="""List of regions to be extracted. 
                                Format: --regions r1 r2 r3 ...""")
-        data.add_argument('--merge_regions', default=None, nargs='+', 
+        data.add_argument('--merge_regions', default=merge_regions, nargs='+', 
                           type=str, 
                           help="""Merge regions on PAGE file into a single one.
                                Format --merge_regions r1:r2,r3 r4:r5, then r2 and r3

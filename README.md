@@ -84,6 +84,8 @@ Code is inspired by [pix2pix](https://github.com/phillipi/pix2pix) and [pytorch-
 
 To-do
 =====
+- [ ] Save best model under criteria [best train L1, best val L1, ...]
+- [ ] stop trainning after X epochs without improvement
 - [ ] Providen and example of use
 - [ ] Provide Docker 
 - [ ] Include [BaselinePage](https://github.com/PRHLT/BaseLinePage) to detect baselines.

@@ -10,7 +10,6 @@ import numpy as np
 import cv2
 from multiprocessing import Pool
 import itertools
-import subprocess as SP
 try:
     import cPickle as pickle
 except:
@@ -18,7 +17,6 @@ except:
 
 from page_xml.xmlPAGE import pageData
 from utils import polyapprox as pa
-
 
 #--- TODO: add logging to _pre_process function
 
@@ -217,7 +215,7 @@ class htrDataProcess():
         mask = np.zeros(Oimg.shape, dtype=np.uint8)
         cv2.fillConvexPoly(mask,Lpoly, (255,255,255))
         res = cv2.bitwise_and(Oimg,mask)
-        bRes = res[minY:maxY, minX:maxX]
+        bRes = Oimg[minY:maxY, minX:maxX]
         bMsk = mask[minY:maxY, minX:maxX]
         bRes = cv2.cvtColor( bRes, cv2.COLOR_RGB2GRAY )
         _, bImg = cv2.threshold(bRes,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
@@ -231,7 +229,7 @@ class htrDataProcess():
         #--- gen a 2D list of points
         for i,j in enumerate(maxPoints):
             points[i,:] = [i,j]
-        #--- remove points at poss 0, there are high porbable to bu blank spaces
+        #--- remove points at poss 0, there are high porbable to be blank spaces
         points2D = points[points[:,1]>0]
         if (points2D.size == 0):
             #--- there is no real line
