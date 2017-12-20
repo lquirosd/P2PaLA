@@ -1,0 +1,23 @@
+$data <<EOD
+10 76.59 90.29 82.88 35.5
+20 76.66 90.43 82.98 43.4
+30 76.69 90.45 83.00 57.3
+40 76.72 90.58 83.08 79.7
+50 76.74 90.58 83.09 103
+60 76.72 90.54 83.06 130
+70 76.74 90.58 83.09 166
+80 76.77 90.60 83.11 201
+90 76.76 90.60 83.11 240
+100 76.79 90.63 83.14 324
+EOD
+set terminal jpeg
+set output 'polyapprox.jpg'
+set y2range [30:330]
+set y2label "seconds"
+set y2tics 20
+set ylabel "%"
+set yrange [70:100]
+plot $data using 1:2 title 'P(%)' w lp, \
+     $data using 1:3 title 'R(%)' w lp, \
+     $data using 1:4 title 'F1(%)' w lp, \
+     $data using 1:5 title 'T(s)' w lp axes x1y2

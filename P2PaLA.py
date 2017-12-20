@@ -222,6 +222,7 @@ def main():
                                          line_color=opts.line_color,
                                          processes=opts.num_workers,
                                          only_lines=opts.output_channels == 1,
+                                         opts=opts,
                                          logger=logger)
             tr_data.pre_process()
             opts.tr_img_list = tr_data.img_list
@@ -250,6 +251,7 @@ def main():
                                              line_color=opts.line_color,
                                              processes=opts.num_workers,
                                              only_lines=opts.output_channels == 1,
+                                             opts=opts,
                                              logger=logger)
                 va_data.pre_process()
                 opts.val_img_list = va_data.img_list
@@ -532,6 +534,7 @@ def main():
                                          line_color=opts.line_color,
                                          processes=opts.num_workers,
                                          only_lines=opts.output_channels == 1,
+                                         opts=opts,
                                          logger=logger)
             te_data.pre_process()
             opts.te_img_list = te_data.img_list
@@ -610,6 +613,7 @@ def main():
                                          processes=opts.num_workers,
                                          only_lines=opts.output_channels == 1,
                                          build_labels=False,
+                                         opts=opts,
                                          logger=logger)
             pr_data.pre_process()
             opts.prod_img_list = pr_data.img_list

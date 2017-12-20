@@ -92,6 +92,9 @@ class Arguments(object):
                                   trace: Use trace normalization algorithm.""")
         data.add_argument('--num_segments', default=4, type=int,
                           help='Number of segments of the output baseline')
+        data.add_argument('--max_vertex', default=10, type=int,
+                          help="""Maximun number of vertex used to approximate
+                               the baselined when use 'optimal' algorithm""")
         #----------------------------------------------------------------------
         #----- Define dataloader parameters
         #----------------------------------------------------------------------

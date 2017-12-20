@@ -1,14 +1,15 @@
+```bash
 usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--work_dir WORK_DIR]
                  [--log_level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
-                 [--baseline_evaluator BASELINE_EVALUATOR]
                  [--num_workers NUM_WORKERS] [--gpu GPU] [--seed SEED]
                  [--no_display] [--use_global_log USE_GLOBAL_LOG]
                  [--log_comment LOG_COMMENT] [--img_size IMG_SIZE IMG_SIZE]
                  [--line_color LINE_COLOR] [--line_width LINE_WIDTH]
                  [--regions REGIONS [REGIONS ...]]
                  [--merge_regions MERGE_REGIONS [MERGE_REGIONS ...]]
-                 [--batch_size BATCH_SIZE]
+                 [--approx_alg {optimal,trace}] [--num_segments NUM_SEGMENTS]
+                 [--max_vertex MAX_VERTEX] [--batch_size BATCH_SIZE]
                  [--shuffle_data | --no-shuffle_data]
                  [--pin_memory | --no-pin_memory] [--flip_img | --no-flip_img]
                  [--input_channels INPUT_CHANNELS]
@@ -39,12 +40,6 @@ General Parameters:
   --work_dir WORK_DIR   Where to place output data (default: ./work/)
   --log_level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
                         Logging level (default: INFO)
-  --baseline_evaluator BASELINE_EVALUATOR
-                        Command to evaluate baselines (default: ['java',
-                        '-jar', '/home/lquirosd/REPOS/TranskribusBaseLineEvalu
-                        ationScheme/TranskribusBaseLineEvaluationScheme_v0.1.0
-                        /TranskribusBaseLineEvaluationScheme-0.1.0-jar-with-
-                        dependencies.jar', '-no_s'])
   --num_workers NUM_WORKERS
                         Number of workers used to proces input data. If not
                         provided all available CPUs will be used. (default: 4)
@@ -76,7 +71,17 @@ Data Related Parameters:
   --merge_regions MERGE_REGIONS [MERGE_REGIONS ...]
                         Merge regions on PAGE file into a single one. Format
                         --merge_regions r1:r2,r3 r4:r5, then r2 and r3 will be
-                        merged into r1 and r5 into r4 (default: None)
+                        merged into r1 and r5 into r4 (default: {'$par':
+                        ['$pac']})
+  --approx_alg {optimal,trace}
+                        Algorith to approximate baseline to N segments.
+                        optimal: [Perez & Vidal, 1994] algorithm. trace: Use
+                        trace normalization algorithm. (default: optimal)
+  --num_segments NUM_SEGMENTS
+                        Number of segments of the output baseline (default: 4)
+  --max_vertex MAX_VERTEX
+                        Maximun number of vertex used to approximate the
+                        baselined when use 'optimal' algorithm (default: 10)
 
 Data Loader Parameters:
   --batch_size BATCH_SIZE
@@ -93,7 +98,8 @@ Neural Networks Parameters:
   --input_channels INPUT_CHANNELS
                         Number of channels of input data (default: 3)
   --output_channels OUTPUT_CHANNELS
-                        Number of channels of labels (default: 2)
+                        Number of channels of labels. If =1 then only lines
+                        will be extracted. (default: 2)
   --cnn_ngf CNN_NGF     Number of filters of CNNs (default: 64)
   --use_gan             USE GAN to compute G loss (default: True)
   --no-use_gan          do not use GAN to compute G loss (default: True)
@@ -172,3 +178,4 @@ Production Parameters:
                         List to all images ready to be used by NN train, if
                         not provide it will be generated from original data.
                         (default: )
+```

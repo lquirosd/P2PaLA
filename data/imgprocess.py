@@ -26,7 +26,8 @@ class htrDataProcess():
     def __init__(self,data_pointer, out_size, out_folder, classes,
                  line_width=10, line_color=128, processes=2,
                  approx_alg=None, num_segments=4,
-                 build_labels=True, only_lines=False, logger=None):
+                 build_labels=True, only_lines=False,
+                 opts=None, logger=None):
         """ function to proces all data into a htr dataset"""
         self.logger = logging.getLogger(__name__) if logger==None else logger 
         #--- file formats from opencv imread supported formats
@@ -44,6 +45,7 @@ class htrDataProcess():
         self.num_segments = num_segments
         self.build_labels = build_labels
         self.only_lines = only_lines
+        self.opts = opts
         #--- Create output folder if not exist
         if not os.path.exists(self.out_folder):
             self.logger.debug('Creating {} folder...'.format(self.out_folder))
@@ -236,7 +238,11 @@ class htrDataProcess():
             return (False, [[0,0]])
         if self.approx_alg == 'optimal':
             #--- take only 100 points to build the baseline 
-            points2D = points2D[np.linspace(0,points2D.shape[0]-1,100,dtype=np.int)]
+            if points2D.shape[0] > self.opts.max_vertex:
+                points2D = points2D[np.linspace(0,
+                                                points2D.shape[0]-1,
+                                                self.opts.max_vertex,
+                                                dtype=np.int)]
             (approxError, approxLin) = pa.poly_approx(points2D,
                                                   self.num_segments,
                                                   pa.one_axis_delta)
