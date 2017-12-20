@@ -24,8 +24,8 @@ class pageData():
         self.creator = 'P2PaLA-PRHLT' if creator==None else creator
         self.XMLNS= {'xmlns':"http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15",
                       'xmlns:xsi':"http://www.w3.org/2001/XMLSchema-instance", 
-                      'xsi:schemaLocation':'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15' +\
-                      ' http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd'}
+                      'xsi:schemaLocation':" ".join(['http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15',
+                      ' http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd'])}
         #self.parse()
 
     def parse(self):
@@ -36,13 +36,13 @@ class pageData():
         #--- get the root of the data
         self.root = tree.getroot()
         #--- save "namespace" base
-        self.base = self.root.tag.rsplit('}',1)[0] + '}'
+        self.base = "".join([self.root.tag.rsplit('}',1)[0], '}'])
     
     def get_region(self,region_name):
         """
         get all regions in PAGE which match region_name
         """
-        return self.root.findall(".//"+self.base+region_name) or None
+        return self.root.findall("".join([".//",self.base,region_name])) or None
 
     def get_id(self,element):
         """
@@ -68,15 +68,15 @@ class pageData():
         """
         Get Image size defined on XML file
         """
-        img_width = int(self.root.findall("./"+self.base+"Page")[0].get(
+        img_width = int(self.root.findall("".join(["./",self.base,"Page"]))[0].get(
                         'imageWidth'))
-        img_height = int(self.root.findall("./"+self.base+"Page")[0].get(
+        img_height = int(self.root.findall("".join(["./",self.base,"Page"]))[0].get(
                         'imageHeight'))
         return (img_width, img_height)
 
     def get_coords(self, element):
-        str_coords = element.findall('./' + self.base +
-                                    'Coords')[0].attrib.get('points').split()
+        str_coords = element.findall("".join(['./', self.base,
+                                    'Coords']))[0].attrib.get('points').split()
         return np.array([i.split(',') for i in str_coords]).astype(np.int)
 
     def build_mask(self,out_size,element_name, color_dic):
@@ -86,7 +86,7 @@ class pageData():
         size = self.get_size()[::-1]
         mask = np.zeros(out_size, np.uint8)
         scale_factor = out_size/size
-        for element in self.root.findall(".//"+self.base+element_name):
+        for element in self.root.findall("".join([".//",self.base,element_name])):
             #--- get element type
             e_type = self.get_region_type(element)
             if (e_type == None or e_type not in color_dic):
@@ -111,7 +111,7 @@ class pageData():
         scale_factor = out_size/size
         #mask = np.zeros((int(size[1]*scale_factor),
         #                 int(size[0]*scale_factor)), np.uint8) + 255
-        for element in self.root.findall(".//"+self.base+'Baseline'):
+        for element in self.root.findall("".join([".//",self.base,'Baseline'])):
             #--- get element coords
             str_coords = element.attrib.get('points').split()
             coords = np.array([i.split(',') for i in str_coords]).astype(np.int)
@@ -123,7 +123,7 @@ class pageData():
         """
         get Text defined for element
         """
-        text_node = element.find('./' + self.base + 'TextEquiv')
+        text_node = element.find("".join(['./',self.base,'TextEquiv']))
         if (text_node == None):
             self.logger.warning('No Text node found for line {} at {}'.format(
                             self.get_id(element),
@@ -142,18 +142,18 @@ class pageData():
     def get_transcription(self):
         """Extracts text from each line on the XML file"""
         data = {}
-        for element in self.root.findall(".//"+self.base+'TextRegion'):
+        for element in self.root.findall("".join([".//",self.base,'TextRegion'])):
             r_id = self.get_id(element)
-            for line in element.findall(".//"+self.base+'TextLine'):
+            for line in element.findall("".join([".//",self.base,'TextLine'])):
                 l_id = self.get_id(line)
-                data[r_id + '_' + l_id] = self.get_text(line)
+                data["_".join([r_id,l_id])] = self.get_text(line)
 
         return data
 
     def write_transcriptions(self,out_dir):
         """write out one txt file per text line"""
         for line,text in self.get_transcription().iteritems():
-            fh = open (out_dir + '/' + self.name + '_' + line + '.txt',
+            fh = open (os.path.join(out_dir,"".join([self.name,'_',line,'.txt'])),
                     'w')
             fh.write(text + '\n')
             fh.close()
@@ -211,8 +211,8 @@ class pageData():
         """add element to parent node"""
         parent = self.page if parent==None else parent
         t_reg = ET.SubElement(parent, r_class)
-        t_reg.attrib = {'id':r_class + '_' + str(r_id),
-                        'custom':'structure {type:' + r_type + ';}'}
+        t_reg.attrib = {'id':"_".join([r_class,str(r_id)]),
+                        'custom':"".join(['structure {type:',r_type,';}'])}
         ET.SubElement(t_reg,'Coords').attrib = {'points':r_coords}
         return t_reg
 
