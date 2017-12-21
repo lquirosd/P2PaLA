@@ -38,13 +38,6 @@ def tensor2img(image_tensor, imtype=np.uint8):
     ex_dim = ex_dim.cuda()
     v_o = torch.cat((image_tensor,ex_dim),dim=0)
     image_numpy = v_o.cpu().float().numpy()
-    #if image_numpy.shape[0] == 1:
-    #    image_numpy = np.tile(image_numpy, (3, 1, 1))
-    #temp = np.ones((3,image_numpy.shape[1],image_numpy.shape[2]))
-    #temp[0,:,:] = image_numpy[0,:,:]
-    #temp[1,:,:] = image_numpy[1,:,:]
-    #image_numpy = temp
-    #image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
     image_numpy = ((np.transpose(image_numpy, (1, 2, 0)))+1) * 127.5
     return image_numpy.astype(imtype)
 
@@ -58,7 +51,7 @@ def save_checkpoint(state, is_best, opts, logger, epoch):
     logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
     if is_best:
         best_file = os.path.join(opts.checkpoints,
-                    'best_under' + opts.best_criterion + 'criterion.pth.tar')
+                    "".join(['best_under',opts.best_criterion,'criterion.pth.tar']))
         shutil.copyfile(out_file, best_file)
         logger.info('Best model saved to {} at epoch {}'.format(best_file, str(epoch)))
 
@@ -197,8 +190,8 @@ def main():
             else:
                 run_dir = os.path.join(opts.work_dir, 'runs')
             log_dir = os.path.join(run_dir, 
-                               datetime.now().strftime('%b%d_%H-%M-%S')+
-                               '_'+socket.gethostname()+ opts.log_comment)
+                               "".join([datetime.now().strftime('%b%d_%H-%M-%S'),
+                               '_',socket.gethostname(), opts.log_comment]))
                                     
             writer = SummaryWriter(log_dir=log_dir) 
             logger.info('TensorBoard log will be stored at {}'.format(log_dir))
@@ -216,7 +209,7 @@ def main():
             tr_data = dp.htrDataProcess(
                                          opts.tr_data,
                                          opts.img_size,
-                                         opts.work_dir + '/data/train/',
+                                         os.path.join(opts.work_dir,'data','train'),
                                          opts.regions_colors,
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,
@@ -245,7 +238,7 @@ def main():
                 va_data = dp.htrDataProcess(
                                              opts.val_data,
                                              opts.img_size,
-                                             opts.work_dir + '/data/val/',
+                                             os.path.join(opts.work_dir,'data','val/'),
                                              opts.regions_colors,
                                              line_width=opts.line_width,
                                              line_color=opts.line_color,
@@ -455,10 +448,11 @@ def main():
             logger.info('Working on validation inference...')
             res_path = os.path.join(opts.work_dir, 'results', 'val')
             try:
-                os.makedirs(res_path + '/page')
-                os.makedirs(res_path + '/mask')
+                os.makedirs(os.path.join(res_path,'page'))
+                os.makedirs(os.path.join(res_path,'mask'))
             except OSError as exc:
-                if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
+                if exc.errno == errno.EEXIST and os.path.isdir(
+                                    os.path.join(res_path,'page')):
                     pass
                 else:
                     raise
@@ -497,7 +491,7 @@ def main():
         logger.info('Working on test inference...')
         res_path = os.path.join(opts.work_dir, 'results', 'test')
         try:
-            os.makedirs(res_path + '/page')
+            os.makedirs(os.path.join(res_path,'page'))
         except OSError as exc:
             if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
                 pass
@@ -528,7 +522,7 @@ def main():
             te_data = dp.htrDataProcess(
                                          opts.te_data,
                                          opts.img_size,
-                                         opts.work_dir + '/data/test/',
+                                         os.path.join(opts.work_dir,'data','test'),
                                          opts.regions_colors,
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,
@@ -575,7 +569,7 @@ def main():
         logger.info('Working on prod inference...')
         res_path = os.path.join(opts.work_dir, 'results', 'prod')
         try:
-            os.makedirs(res_path + '/page')
+            os.makedirs(os.path.join(res_path,'page'))
         except OSError as exc:
             if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/page'):
                 pass
@@ -606,7 +600,7 @@ def main():
             pr_data = dp.htrDataProcess(
                                          opts.prod_data,
                                          opts.img_size,
-                                         opts.work_dir + '/data/prod/',
+                                         os.path.join(opts.work_dir,'data','prod'),
                                          opts.regions_colors,
                                          line_width=opts.line_width,
                                          line_color=opts.line_color,

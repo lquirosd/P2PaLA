@@ -60,8 +60,7 @@ def poly_approx(secPoints,vertM,delta):
     secVec = np.zeros((vertM,2), dtype=np.int)
     #--- Matrix to store the sequence of decisions taken
     pathMatrix = np.zeros([secSize,vertM], dtype=np.int)
-    pathMatrix.fill(99999999999999)
-    #--- Initialization of the first cell of D, becouse this is and endpoint bounded polygon
+    #--- Initialization of the first cell of D, because this is and endpoint bounded polygon
     matD[0,0] = 0
     #matD[1:,0] = np.inf
     minArray = np.zeros((secSize),dtype=np.float)
