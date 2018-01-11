@@ -9,6 +9,7 @@
 --merge_regions $par:$pac
 --approx_alg optimal
 --num_segments 4
+--max_vertex 100
 --batch_size 8
 --input_channels 3
 --output_channels 1
