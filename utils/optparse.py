@@ -208,6 +208,8 @@ class Arguments(object):
                                  train, if not provide it will be generated from
                                  original data.
                                  """)
+        test.add_argument('--do_off', default=True, type=bool,
+                          help='Turn DropOut Off during inference')
         #----------------------------------------------------------------------
         #----- Define Validation parameters
         #----------------------------------------------------------------------

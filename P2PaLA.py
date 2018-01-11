@@ -26,7 +26,7 @@ from data import imgprocess as dp
 
 #--- reduce option isn't supported until pytorch 0.3.*
 #--- TODO: install v0.3.0 or implement L1loss by myself
-loss_dic = {'L1':torch.nn.L1Loss(size_average=False),#reduce=False),
+loss_dic = {'L1':torch.nn.L1Loss(size_average=True),#reduce=False),
             'MSE':torch.nn.MSELoss(size_average=True),
             'smoothL1':torch.nn.SmoothL1Loss(size_average=True)}
 
@@ -41,19 +41,20 @@ def tensor2img(image_tensor, imtype=np.uint8):
     image_numpy = ((np.transpose(image_numpy, (1, 2, 0)))+1) * 127.5
     return image_numpy.astype(imtype)
 
-def save_checkpoint(state, is_best, opts, logger, epoch):
+def save_checkpoint(state, is_best, opts, logger, epoch, criterion=''):
     """
     Save current model to checkpoints dir
     """
     #--- borrowed from: https://github.com/pytorch/examples/blob/master/imagenet/main.py#L139
-    out_file = os.path.join(opts.checkpoints, 'checkpoint.pth.tar')
-    torch.save(state, out_file)
-    logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
     if is_best:
-        best_file = os.path.join(opts.checkpoints,
-                    "".join(['best_under',opts.best_criterion,'criterion.pth.tar']))
-        shutil.copyfile(out_file, best_file)
-        logger.info('Best model saved to {} at epoch {}'.format(best_file, str(epoch)))
+        out_file = os.path.join(opts.checkpoints, "".join(['best_under',criterion,'criterion.pth.tar']))
+        torch.save(state, out_file)
+        logger.info('Best model saved to {} at epoch {}'.format(out_file, str(epoch)))
+    else:
+        out_file = os.path.join(opts.checkpoints, 'checkpoint.pth.tar')
+        torch.save(state, out_file)
+        logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
+    return out_file
 
 #--- TODO check all related to label_w
 def check_inputs(opts, logger):
@@ -173,6 +174,7 @@ def main():
     torch.cuda.manual_seed_all(opts.seed)
     #--- Init model variable
     nnG = None
+    bestState = None
     #--- configure TensorBoard display
     opts.img_size = np.array(opts.img_size, dtype=np.int)
     #--------------------------------------------------------------------------
@@ -328,6 +330,8 @@ def main():
         #---    statistically better than previous
         best_val = np.inf
         best_tr = np.inf
+        best_model = ''
+        best_epoch = 0
         for epoch in xrange(opts.epochs):
             epoch_start = time.time()
             epoch_lossG = 0
@@ -336,6 +340,7 @@ def main():
             epoch_lossD = 0
             for batch,sample in enumerate(train_dataloader):
                 #--- Reset Grads
+                #nnG.apply(models.zero_bias)
                 optimizerG.zero_grad()
                 x = Variable(sample['image'])
                 y_gt = Variable(sample['label'])
@@ -346,10 +351,11 @@ def main():
                     #w = w.cuda()
                 y_gen = nnG(x)
                 g_loss = lossG(y_gen,y_gt)
-                #g_loss = torch.mul(g_loss, w)
-                #g_loss = torch.sum(g_loss)
-                g_loss = g_loss * (1/y_gen.data[0].numel())
+                #--- reduce is not implemented, average is implemented in loss
+                #--- function itself
+                #g_loss = g_loss * (1/y_gen.data[0].numel())
                 if opts.use_gan:
+                    #nnD.apply(models.zero_bias)
                     optimizerD.zero_grad()
                     real_D = torch.cat([x,y_gt],1)
                     y_dis_real = nnD(real_D)
@@ -385,7 +391,7 @@ def main():
                 optimizerG.step()
             #--- forward pass val
             if opts.do_val:
-                val_loss = 0
+                #val_loss = 0
                 for v_batch,v_sample in enumerate(val_dataloader):
                     #--- set vars to volatile, since bo backward used
                     v_img = Variable(v_sample['image'], volatile=True)
@@ -395,7 +401,7 @@ def main():
                         v_label = v_label.cuda()
                     v_y = nnG(v_img)
                     v_loss = lossG(v_y, v_label)
-                    v_loss = v_loss * (1/v_y.data[0].numel())
+                    #v_loss = v_loss * (1/v_y.data[0].numel())
                     val_loss += v_loss.data[0] / v_y.data.size()[0]
                 val_loss = val_loss/v_batch
             #--- Write to Logs
@@ -410,6 +416,36 @@ def main():
                     writer.add_scalar('train/D_loss_Real',epoch_lossR/batch,epoch)
                 if opts.do_val:
                     writer.add_scalar('val/lossG',val_loss,epoch)
+            #--- Save model under val or min loss
+            if opts.do_val:
+                if best_val >= val_loss:
+                    best_val = val_loss
+                    best_epoch = epoch
+                    state = {
+                            'nnG_state':            nnG.state_dict(),
+                            'nnG_optimizer_state':  optimizerG.state_dict(),
+                            'g_loss':               opts.g_loss
+                            }
+                    if opts.use_gan:
+                        state['nnD_state'] =            nnD.state_dict()
+                        state['nnD_optimizer_state'] =  optimizerD.state_dict()
+                    best_model = save_checkpoint(state, True, opts, logger, epoch,
+                                                 criterion='val' + opts.g_loss)
+            else:
+                if best_tr >= epoch_lossG:
+                    best_tr = epoch_lossG
+                    best_epoch = epoch
+                    state = {
+                            'nnG_state':            nnG.state_dict(),
+                            'nnG_optimizer_state':  optimizerG.state_dict(),
+                            'g_loss':               opts.g_loss
+                            }
+                    if opts.use_gan:
+                        state['nnD_state'] =            nnD.state_dict()
+                        state['nnD_optimizer_state'] =  optimizerD.state_dict()
+                    best_model = save_checkpoint(state, True, opts, logger, epoch,
+                                                 criterion=opts.g_loss)
+            #--- Save checkpoint
             if epoch%opts.save_rate == 0 or epoch == opts.epochs - 1:
                 #--- save current model, to test load func
                 state = {
@@ -420,30 +456,33 @@ def main():
                 if opts.use_gan:
                     state['nnD_state'] =            nnD.state_dict()
                     state['nnD_optimizer_state'] =  optimizerD.state_dict()
-                save_checkpoint(state, False, opts, logger, epoch)
-                if not opts.no_display:
-                    dim = y_gen.data.size()
-                    ex_dim = torch.ones(dim[0],3-dim[1],dim[2],dim[3])
-                    if opts.use_gpu:
-                        ex_dim = ex_dim.cuda()
-                    o = torch.cat((y_gen.data,ex_dim),dim=1)
-                    o = vutils.make_grid(o, normalize=False, scale_each=True)
-                    t = torch.cat((y_gt.data,ex_dim),dim=1)
-                    t = vutils.make_grid(t, normalize=False, scale_each=True)
-                    writer.add_image('train/G_out', o, epoch)
-                    writer.add_image('train/GT', t, epoch)
-                    if opts.do_val:
-                        v_dim = v_y.data.size()
-                        v_ex_dim = torch.ones(v_dim[0],3-v_dim[1],v_dim[2],v_dim[3])
-                        if opts.use_gpu:
-                            v_ex_dim = v_ex_dim.cuda()
-                        v_o = torch.cat((v_y.data,v_ex_dim),dim=1)
-                        v_o = vutils.make_grid(v_o, normalize=False, scale_each=True)
-                        writer.add_image('val/G_out', v_o, epoch)
-                        v_t = torch.cat((v_label.data,v_ex_dim),dim=1)
-                        v_t = vutils.make_grid(v_t, normalize=False, scale_each=True)
-                        writer.add_image('val/GT', v_t, epoch)
+                best_model = save_checkpoint(state, False, opts, logger, epoch)
+                #--- remove save image, TensorBoard compression makes the images
+                #--- useless
+                #if not opts.no_display:
+                #    #dim = y_gen.data.size()
+                #    #ex_dim = torch.ones(dim[0],3-dim[1],dim[2],dim[3])
+                #    #if opts.use_gpu:
+                #    #    ex_dim = ex_dim.cuda()
+                #    #o = torch.cat((y_gen.data,ex_dim),dim=1)
+                #    #o = vutils.make_grid(o, normalize=False, scale_each=True)
+                #    #t = torch.cat((y_gt.data,ex_dim),dim=1)
+                #    #t = vutils.make_grid(t, normalize=False, scale_each=True)
+                #    #writer.add_image('train/G_out', o, epoch)
+                #    #writer.add_image('train/GT', t, epoch)
+                #    if opts.do_val:
+                #        #v_dim = v_y.data.size()
+                #        #v_ex_dim = torch.ones(v_dim[0],3-v_dim[1],v_dim[2],v_dim[3])
+                #        #if opts.use_gpu:
+                #        #    v_ex_dim = v_ex_dim.cuda()
+                #        #v_o = torch.cat((v_y.data,v_ex_dim),dim=1)
+                #        #v_o = vutils.make_grid(v_o, normalize=False, scale_each=True)
+                #        #writer.add_image('val/G_out', v_o, epoch)
+                #        #v_t = torch.cat((v_label.data,v_ex_dim),dim=1)
+                #        #v_t = vutils.make_grid(v_t, normalize=False, scale_each=True)
+                #        #writer.add_image('val/GT', v_t, epoch)
         logger.info('Trining stage done. total time taken: {}'.format(time.time()-train_start))
+        #---- Train is done, next is to save validation inference
         if opts.do_val:
             logger.info('Working on validation inference...')
             res_path = os.path.join(opts.work_dir, 'results', 'val')
@@ -457,7 +496,20 @@ def main():
                 else:
                     raise
             #--- Set model to eval, to perform inference step 
-            nnG.eval()
+            if best_epoch == epoch:
+                nnG.eval()
+                if opts.do_off:
+                    nnG.apply(models.off_dropout)
+            else:
+                #--- load best model for inference
+                checkpoint = torch.load(best_model)
+                nnG.load_state_dict(checkpoint['nnG_state'])
+                if opts.use_gpu:
+                    nnG = nnG.cuda()
+                nnG.eval()
+                if opts.do_off:
+                    nnG.apply(models.off_dropout)
+
             for v_batch,v_sample in enumerate(val_dataloader):
                 #--- set vars to volatile, since bo backward used
                 v_img = Variable(v_sample['image'], volatile=True)
@@ -510,11 +562,15 @@ def main():
             if opts.use_gpu:
                 nnG = nnG.cuda()
             nnG.eval()
+            if opts.do_off:
+                nnG.apply(models.off_dropout)
             logger.debug('GEN Network:\n{}'.format(nnG)) 
             logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
         else:
             logger.debug('Using prevously loaded Generative module for test...')
             nnG.eval()
+            if opts.do_off:
+                nnG.apply(models.off_dropout)
 
         #--- get test data
         if opts.te_img_list == '':
@@ -588,11 +644,15 @@ def main():
             if opts.use_gpu:
                 nnG = nnG.cuda()
             nnG.eval()
+            if opts.do_off:
+                nnG.apply(models.off_dropout)
             logger.debug('GEN Network:\n{}'.format(nnG)) 
             logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
         else:
             logger.debug('Using prevously loaded Generative module for prod...')
             nnG.eval()
+            if opts.do_off:
+                nnG.apply(models.off_dropout)
 
         #--- get prod data
         if opts.prod_img_list == '':
