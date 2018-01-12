@@ -17,7 +17,7 @@ Usage:
 
 > Dataset size more then 2GB, make sure to have at least 6GB of free disk space to store all the experiment. 
 
-> See [config](config.txt) for details about trining parameters.
+> See [config](config.txt) for details about training parameters.
 
 ICDAR 2017 Results
 ==================
