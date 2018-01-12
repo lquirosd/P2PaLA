@@ -24,13 +24,19 @@ ICDAR 2017 Results
 
 ## Complex Track
 
+Following table shows results published on [ICDAR 2017](http://u-pat.org/ICDAR2017/index.php) proceddings 
+plus the results of this experiment (P2PaLA row).
+
 |  Method  |  P   |  R   |  F1  | 
 |:---------|:----:|:----:|:----:|
-|  DMRZ    | **85.4** | 86.3 | **85.9** |
+|  DMRZ    | **85.4** | **86.3** | **85.9** |
 |  **P2PaLA**  | 83.25 | 85.73 | 84.47 |
 |  BYU     | 77.3 | 82.0 | 79.6 |
 |  IRISA   | 69.2 | 77.2 | 73.0 |
 |  UPVLC   | 83.3 | 60.6 | 70.2 |
+
+As you can notice, results are pretty close to competition winner. Although no 
+hyperparameter tunning is performed.
 
 Corpus Notes
 ============
