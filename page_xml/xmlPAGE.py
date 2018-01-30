@@ -107,10 +107,11 @@ class pageData():
         Builds a "image" mask of Baselines on XML-PAGE
         """
         size = self.get_size()[::-1]
+        #--- Although NNLLoss requires an Long Tensor (np.int -> torch.LongTensor)
+        #--- is better to keep mask as np.uint8 to save disk space, then change it 
+        #--- to np.int @ dataloader only if NNLLoss is going to be used.
         mask = np.zeros((out_size[0],out_size[1]), np.uint8)
         scale_factor = out_size/size
-        #mask = np.zeros((int(size[1]*scale_factor),
-        #                 int(size[0]*scale_factor)), np.uint8) + 255
         for element in self.root.findall("".join([".//",self.base,'Baseline'])):
             #--- get element coords
             str_coords = element.attrib.get('points').split()
@@ -160,6 +161,7 @@ class pageData():
     
     def get_reading_order(self,element):
         """get the Reading order of `element` from xml data"""
+        raise NotImplementedError
         try:
             e_ro =  re.match(r".*readingOrder {.*index:(.*);.*}",
                       element.attrib['custom']).group(1)
@@ -173,6 +175,7 @@ class pageData():
     def split_image_by_line(self,img,size):
         """save an PNG image for each line defined on XML-PAGE"""
         raise NotImplementedError
+        #*** Function is WIP
         regions = {}
         for i,element in enumerate(self.root.findall(".//"+self.base+'TextRegion')):
             e_ro = self.get_reading_order(element)

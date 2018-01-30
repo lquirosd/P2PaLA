@@ -51,6 +51,10 @@ def poly_approx(secPoints,vertM,delta):
     Author:
         lquirosd, 2017
     """
+    #--- if number of input point is less than M, return input
+    if secPoints.shape[0] <= vertM:
+        return (0.0,secPoints)
+
     secSize = secPoints.shape[0]
     #--- Define internal Variables
     #--- Dynamic programming matrix. The rows represent the input points and the colums the vertices.
@@ -111,7 +115,4 @@ def norm_trace(sec_points, vert_m):
         output[m] = sec_points[n-1] + ((sec_points[n]-sec_points[n-1])*alpha)
     output[-1] = sec_points[-1]
     return output
-
-
-
 

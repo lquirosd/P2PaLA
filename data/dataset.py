@@ -18,7 +18,7 @@ class htrDataset(Dataset):
     """
     Class to handle HTR dataset feeding
     """
-    def __init__(self,img_lst,label_lst=None,w_lst=None, transform=None, logger=None):
+    def __init__(self,img_lst,label_lst=None, transform=None, logger=None, opts=None):
         """
         Args:
             img_lst (string): Path to the list of images to be processed
@@ -32,13 +32,13 @@ class htrDataset(Dataset):
         self.img_paths = open(img_lst,'r').readlines()
         self.img_paths = [x.rstrip() for x in self.img_paths]
         self.build_label = False
+        #--- Labels will be loaded only if label_lst exists
         if label_lst != None:
             self.label_paths = open(label_lst, 'r').readlines()
             self.label_paths = [x.rstrip() for x in self.label_paths]
-            self.w_paths = open(w_lst, 'r').readlines()
-            self.w_paths = [x.rstrip() for x in self.w_paths]
             self.build_label = True
         self.img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
+        self.opts = opts
 
     def __len__(self):
         return len(self.img_paths)
@@ -54,17 +54,17 @@ class htrDataset(Dataset):
         if self.build_label:
             fh = open(self.label_paths[idx],'r')
             label = pickle.load(fh)
-            #--- norm to [-1,1] 
-            label = (((2/255)*label)-1).astype(np.float32)
+            if self.opts.do_class:
+                #--- convert labels to np.int for compatibility to NLLLoss
+                label = label.astype(np.int)
+            else:
+                #--- norm to [-1,1] 
+                label = (((2/255)*label)-1).astype(np.float32)
+                #--- force array to be a 3D tensor as needed by conv2d
+                if label.ndim == 2:
+                    label = np.expand_dims(label, 0)
             fh.close()
-            fh = open(self.w_paths[idx],'r')
-            w_label = pickle.load(fh)
-            fh.close()
-            #--- force array to be a 3D tensor as needed by conv2d
-            if label.ndim == 2:
-                label = np.expand_dims(label, 0)
-                w_label = np.expand_dims(w_label, 0)
-            sample = {'image': image, 'label': label, 'w':w_label, 'id': self.img_ids[idx]}
+            sample = {'image': image, 'label': label, 'id': self.img_ids[idx]}
         else:
             sample = {'image':image, 'id':self.img_ids[idx]}
         if self.transform:
@@ -77,6 +77,8 @@ class toTensor(object):
     def __call__(self,sample):
         for k,v in sample.iteritems():
             if type(v) is np.ndarray:
+                #--- by default float arrays will be converted to float tensors
+                #--- and int arrays to long tensor.
                 sample[k] = torch.from_numpy(v)
         return sample
 

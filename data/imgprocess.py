@@ -23,29 +23,30 @@ from utils import polyapprox as pa
 class htrDataProcess():
     """
     """
-    def __init__(self,data_pointer, out_size, out_folder, classes,
-                 line_width=10, line_color=128, processes=2,
-                 approx_alg=None, num_segments=4,
-                 build_labels=True, only_lines=False,
-                 opts=None, logger=None):
+    def __init__(self,data_pointer, out_folder, opts, build_labels=True,
+                 logger=None):
         """ function to proces all data into a htr dataset"""
         self.logger = logging.getLogger(__name__) if logger==None else logger 
         #--- file formats from opencv imread supported formats
         #--- any issue see: https://docs.opencv.org/3.0-beta/modules/imgcodecs/doc/reading_and_writing_images.html#imread
         self.formats = ['tif','tiff', 'png', 'jpg', 'jpeg', 'JPG','bmp']
         self.data_pointer = data_pointer
-        self.out_size = out_size
         self.out_folder = out_folder
-        self.classes = classes
-        self.th_span = 64 if only_lines else (classes[classes.keys()[1]]-classes[classes.keys()[0]])/2 
-        self.line_width = line_width
-        self.line_color = line_color
-        self.processes = processes
-        self.approx_alg = approx_alg
-        self.num_segments = num_segments
         self.build_labels = build_labels
-        self.only_lines = only_lines
-        self.opts = opts
+        self.out_size = opts.img_size
+        self.classes = opts.regions_colors
+        self.line_width = opts.line_width
+        self.processes = opts.num_workers
+        self.approx_alg = opts.approx_alg
+        self.num_segments = opts.num_segments
+        self.only_lines = opts.output_channels == 1
+        self.do_class = opts.do_class
+        self.line_color = 1 if opts.do_class else opts.line_color
+        if self.only_lines:
+            self.th_span = 64
+        else:
+            self.th_span = (self.classes[self.classes.keys()[1]]- \
+                    self.classes[self.classes.keys()[0]])/2 
         #--- Create output folder if not exist
         if not os.path.exists(self.out_folder):
             self.logger.debug('Creating {} folder...'.format(self.out_folder))
@@ -60,7 +61,7 @@ class htrDataProcess():
     def pre_process(self):
         """
         """
-        self.processed_data = []
+        processed_data = []
         try:
             pool = Pool(processes=self.processes) #--- call without parameters = Pool(processes=cpu_count())
             l_list = len(self.img_paths)
@@ -74,7 +75,7 @@ class htrDataProcess():
             #--- keep _processData out of the class in order to be pickable
             #--- Pool do not support not pickable objects
             #--- TODO: move func inside the class, and pass logger to it
-            self.processed_data = pool.map(_processData,params)
+            processed_data = pool.map(_processData,params)
         except Exception as e:
             pool.close()
             pool.terminate()
@@ -82,13 +83,11 @@ class htrDataProcess():
         else:
             pool.close()
             pool.join()
-        self.processed_data = np.array(self.processed_data)
-        np.savetxt(self.out_folder + '/img.lst',self.processed_data[:,0],fmt='%s')
+        processed_data = np.array(processed_data)
+        np.savetxt(self.out_folder + '/img.lst',processed_data[:,0],fmt='%s')
         if self.build_labels:
-            np.savetxt(self.out_folder + '/label.lst',self.processed_data[:,1],fmt='%s')
-            np.savetxt(self.out_folder + '/label_w.lst',self.processed_data[:,2],fmt='%s')
+            np.savetxt(self.out_folder + '/label.lst',processed_data[:,1],fmt='%s')
             self.label_list = self.out_folder + '/label.lst'
-            self.w_list = self.out_folder + '/label_w.lst'
         self.img_list = self.out_folder + '/img.lst'
 
     def gen_page(self,img_id,data, reg_list=None, out_folder='./',
@@ -123,7 +122,7 @@ class htrDataProcess():
             colors = self.classes
         lines = np.zeros(l_data.shape,dtype='uint8')
         #--- data comes on [-1, 1] range, but colors are in [0,255]
-        #--- apply threshold over two class layeri, bg=-1
+        #--- apply threshold over two class layer, bg=-1
         l_color = (-1 - ((self.line_color*(2/255))-1))/2
         lines[l_data > l_color] = 1
         reg_mask = np.zeros(l_data.shape,dtype='uint8')
@@ -286,31 +285,19 @@ def _processData(params):
         gt_data.parse()
         #--- build lines mask
         lin_mask = gt_data.build_baseline_mask(out_size,line_color,line_width)
-        unq,idx = np.unique(lin_mask, return_inverse=True)
-        f_idx = np.bincount(idx)
-        lin_class_norm = (1/f_idx[idx]).reshape(lin_mask.shape)
         #--- buid regions mask
         if not only_lines:
             reg_mask = gt_data.build_mask(out_size,'TextRegion', classes)
-            unq,idx = np.unique(reg_mask, return_inverse=True)
-            f_idx = np.bincount(idx)
-            reg_class_norm = (1/f_idx[idx]).reshape(reg_mask.shape)
             label = np.array((lin_mask,reg_mask))
-            label_w = np.array((lin_class_norm,reg_class_norm),dtype=np.float32)
         else:
             label = lin_mask
-            label_w = lin_class_norm.astype(np.float32)
 
         new_label_path = os.path.join(out_folder, img_id + '.pickle')
-        new_label_w_path = os.path.join(out_folder, img_id + '_w.pickle')
         fh = open(new_label_path,'w')
         pickle.dump(label,fh,-1)
         fh.close()
-        fh = open(new_label_w_path,'w')
-        pickle.dump(label_w,fh,-1)
-        fh.close()
-        return (new_img_path, new_label_path, new_label_w_path)
-    return (new_img_path, None, None)
+        return (new_img_path, new_label_path)
+    return (new_img_path, None)
 
 def symlink_force(target, link_name):
     #--- from https://stackoverflow.com/questions/8299386/modifying-a-symlink-in-python
@@ -322,6 +309,4 @@ def symlink_force(target, link_name):
             os.symlink(target, link_name)
         else:
             raise e
-
-
 

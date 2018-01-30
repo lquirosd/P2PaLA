@@ -143,6 +143,8 @@ class Arguments(object):
         net.add_argument('--g_loss', default='L1', type=str,
                          choices=['L1','MSE','smoothL1'],
                          help='Loss function for G NN')
+        net.add_argument('--do_class', default=False, type=self._str_to_bool,
+                         help='Compute the problem as a classification instead of regresion')
         #----------------------------------------------------------------------
         #----- Define Optimizer parameters
         #----------------------------------------------------------------------
@@ -312,11 +314,18 @@ class Arguments(object):
 
     def _build_class_regions(self):
         """given a list of regions assign a equaly separated class to each one"""
+        class_dic = OrderedDict()
+        #--- for classification keep regions as a seq of intigers
+        if self.opts.do_class:
+            for c,r in enumerate(self.opts.regions):
+                class_dic[r] = c + 1
+            return class_dic
+        #--- for regresion put all values equally separated in the cont
+        #--- line from 0 to 255
         n_class = len(self.opts.regions)
         #--- div by n_claass + 1 because background is another "class"
         class_gap = int(256/n_class+1)
         class_id = int(class_gap /2) + class_gap
-        class_dic = OrderedDict()
         for c in self.opts.regions:
             class_dic[c] = class_id
             class_id = class_id + class_gap
@@ -370,6 +379,8 @@ class Arguments(object):
                 self.opts.regions_colors[child] = self.opts.regions_colors[parent]
 
         self.opts.checkpoints = os.path.join(self.opts.work_dir, 'checkpoints/')
+        if self.opts.do_class:
+            self.opts.line_color = 1
 
         return self.opts
     def __str__(self):

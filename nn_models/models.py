@@ -15,11 +15,11 @@ class buildUnet(nn.Module):
     """
     doc goes here :)
     """
-    def __init__(self,input_nc,output_nc,ngf=64):
+    def __init__(self,input_nc,output_nc,ngf=64, use_class=False):
         super(buildUnet,self).__init__()
         #self.gpu_ids = gpu_ids
         
-        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=None, is_center=True,i_id='center')
+        model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=None, block_type='center',i_id='center')
         model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_1',useDO=True)
         model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_2',useDO=True)
         model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_3')
@@ -28,7 +28,12 @@ class buildUnet(nn.Module):
         model = uSkipBlock(ngf*4, ngf*8, ngf*4, inner_slave=model, i_id='a_5')
         model = uSkipBlock(ngf*2, ngf*4, ngf*2, inner_slave=model, i_id='a_6')
         model = uSkipBlock(ngf  , ngf*2, ngf  , inner_slave=model, i_id='a_7')
-        model = uSkipBlock(input_nc, ngf, output_nc, inner_slave=model, is_out=True, i_id='out')
+        if use_class:
+            #--- TODO: Update to separate lines and regions
+            #--- this is a test, so only lines are supported
+            model = uSkipBlock(input_nc, ngf, output_nc+1, inner_slave=model, block_type='class_out', i_id='out')
+        else:
+            model = uSkipBlock(input_nc, ngf, output_nc, inner_slave=model, block_type='reg_out', i_id='out')
         #---keep model
         self.model = model
         self.num_params = 0
@@ -50,13 +55,13 @@ class buildUnet(nn.Module):
 class uSkipBlock(nn.Module):
     """
     """
-    def __init__(self,input_nc,inner_nc,output_nc,inner_slave,is_center=False,is_out=False,i_id='0',useDO=False):
+    def __init__(self,input_nc,inner_nc,output_nc,inner_slave,block_type='inner',i_id='0',useDO=False):
         super(uSkipBlock,self).__init__()
-        self.is_out = is_out
-        self.name = str(input_nc) + str(inner_nc) + str(output_nc) + str(is_center) + str(is_out)
+        self.type = block_type
+        self.name = str(input_nc) + str(inner_nc) + str(output_nc) + self.type
         self.id = i_id
         self.output_nc = 2 * output_nc
-        if (is_out):
+        if (self.type == 'reg_out'):
             #--- Handle out block
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
                                stride=2,padding=1,bias=False)
@@ -64,7 +69,16 @@ class uSkipBlock(nn.Module):
                                         stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
             model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Tanh()]
-        elif (is_center):
+        elif (self.type == 'class_out'):
+            #--- handle out block, classification encoding
+            e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
+                               stride=2,padding=1,bias=False)
+            d_conv = nn.ConvTranspose2d(2*inner_nc, output_nc,kernel_size=4,
+                                        stride=2,padding=1,bias=False)
+            d_non_lin = nn.ReLU(True)
+            model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Softmax2d()]
+            
+        elif (self.type == 'center'):
             #--- Handle center case
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
                                stride=2,padding=1,bias=False)
@@ -74,7 +88,7 @@ class uSkipBlock(nn.Module):
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
             model = [e_non_lin, e_conv, d_non_lin,d_conv,d_norm, nn.Dropout(0.5)]
-        else:
+        elif (self.type == 'inner'):
             #--- Handle internal case
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
                                stride=2,padding=1,bias=False)
@@ -84,7 +98,6 @@ class uSkipBlock(nn.Module):
                                         stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
-            #--- TODO: alow to turn on and off dropout
             model = [e_non_lin, e_conv, e_norm,
                      inner_slave,
                      d_non_lin,d_conv,d_norm]
@@ -95,10 +108,18 @@ class uSkipBlock(nn.Module):
     def forward(self,input_x):
         """
         """
-        if(self.is_out):
+        if (self.type == 'reg_out'):
             #--- TODO: handle paralellism over several GPUs
             return self.model(input_x)
+        elif (self.type == 'class_out'):
+            #--- TODO: check for numerical instability by log 
+            if self.training:
+                return torch.log(self.model(input_x))
+            else:
+                #--- remove log during inference 
+                return self.model(input_x)
         else:
+            #--- send input fordward to next block
             return torch.cat([input_x,self.model(input_x)], 1)
 
 #------------------------------------------------------------------------------
@@ -107,16 +128,16 @@ class uSkipBlock(nn.Module):
 
 
 #------------------------------------------------------------------------------
-#-------------      BEGIN ADVERSARIAL DEFINITION
+#-------------      BEGIN ADVERSARIAL D NETWORK
 #------------------------------------------------------------------------------
 
-class buildGAN(nn.Module):
+class buildDNet(nn.Module):
     """
     """
     def __init__(self,input_nc,output_nc,ngf=64,n_layers=3):
         """
         """
-        super(buildGAN,self).__init__()
+        super(buildDNet,self).__init__()
         model = [nn.Conv2d(input_nc+output_nc,ngf,kernel_size=4,
                           stride=2,padding=1,bias=False)]
         model = model + [nn.LeakyReLU(0.2,True)]
@@ -153,30 +174,9 @@ class buildGAN(nn.Module):
         """
         return self.model(input_x)
 
-class lossGAN(nn.Module):
-    """
-    Compute GAN loss = E(log(D(x,y))) + E(log(1-D(x,G(x,z))))
-    """
-    def __init__(self,input_x,input_y,input_g):
-        """
-        """
-    def __call__(self,input_x,input_y,input_g):
-        """
-        """
-        realInput = torch.cat([input_x,input_y],1)
-        real_
-        return self.loss
 #------------------------------------------------------------------------------
 #-------------      END ADVERSARIAL DEFINITION
 #------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-#-------------      BEGIN LOSS FUNCTIONS
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-#-------------      END LOSS FUNCTIONS
 
 def weights_init_normal(m):
     classname = m.__class__.__name__

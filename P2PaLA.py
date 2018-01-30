@@ -28,7 +28,8 @@ from data import imgprocess as dp
 #--- TODO: install v0.3.0 or implement L1loss by myself
 loss_dic = {'L1':torch.nn.L1Loss(size_average=True),#reduce=False),
             'MSE':torch.nn.MSELoss(size_average=True),
-            'smoothL1':torch.nn.SmoothL1Loss(size_average=True)}
+            'smoothL1':torch.nn.SmoothL1Loss(size_average=True),
+            'NLL':torch.nn.NLLLoss(size_average=True)}
 
 def tensor2img(image_tensor, imtype=np.uint8):
     #--- function just for debug, do not use on production stage
@@ -56,7 +57,6 @@ def save_checkpoint(state, is_best, opts, logger, epoch, criterion=''):
         logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
     return out_file
 
-#--- TODO check all related to label_w
 def check_inputs(opts, logger):
     """
     check if some inputs are correct
@@ -210,24 +210,17 @@ def main():
             logger.info('Preprocessing data from {}'.format(opts.tr_data))
             tr_data = dp.htrDataProcess(
                                          opts.tr_data,
-                                         opts.img_size,
                                          os.path.join(opts.work_dir,'data','train'),
-                                         opts.regions_colors,
-                                         line_width=opts.line_width,
-                                         line_color=opts.line_color,
-                                         processes=opts.num_workers,
-                                         only_lines=opts.output_channels == 1,
-                                         opts=opts,
+                                         opts,
                                          logger=logger)
             tr_data.pre_process()
             opts.tr_img_list = tr_data.img_list
             opts.tr_label_list = tr_data.label_list
-            opts.tr_w_list = tr_data.w_list
 
         train_data = dataset.htrDataset(img_lst=opts.tr_img_list,
                                         label_lst=opts.tr_label_list,
-                                        w_lst=opts.tr_w_list,
-                                        transform=transform)
+                                        transform=transform,
+                                        opts=opts)
         train_dataloader = DataLoader(train_data,
                                       batch_size=opts.batch_size,
                                       shuffle=opts.shuffle_data,
@@ -239,24 +232,17 @@ def main():
                 logger.info('Preprocessing data from{}'.format(opts.val_data))
                 va_data = dp.htrDataProcess(
                                              opts.val_data,
-                                             opts.img_size,
                                              os.path.join(opts.work_dir,'data','val/'),
-                                             opts.regions_colors,
-                                             line_width=opts.line_width,
-                                             line_color=opts.line_color,
-                                             processes=opts.num_workers,
-                                             only_lines=opts.output_channels == 1,
-                                             opts=opts,
+                                             opts,
                                              logger=logger)
                 va_data.pre_process()
                 opts.val_img_list = va_data.img_list
                 opts.val_label_list = va_data.label_list
-                opts.val_w_list = va_data.w_list
 
             val_data = dataset.htrDataset(img_lst=opts.val_img_list,
                                           label_lst=opts.val_label_list,
-                                          w_lst=opts.val_w_list,
-                                          transform=transform)
+                                          transform=transform,
+                                          opts=opts)
             val_dataloader = DataLoader(val_data,
                                         batch_size=opts.batch_size,
                                         shuffle=False,
@@ -266,9 +252,14 @@ def main():
         #--- Build Models
         nnG = models.buildUnet(opts.input_channels,
                                opts.output_channels,
-                               ngf=opts.cnn_ngf)
+                               ngf=opts.cnn_ngf,
+                               use_class=opts.do_class)
         #--- TODO: create a funtion @ models to define loss function
-        lossG = loss_dic[opts.g_loss]
+        #--- TODO: create a funtion @ models to define loss function
+        if opts.do_class:
+            lossG = loss_dic['NLL']
+        else:
+            lossG = loss_dic[opts.g_loss]
         #--- TODO: implement other initializadion methods
         optimizerG = optim.Adam(nnG.parameters(),
                                 lr=opts.adam_lr,
@@ -295,11 +286,14 @@ def main():
             nnG.apply(models.weights_init_normal)
         logger.debug('GEN Network:\n{}'.format(nnG)) 
         logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
+        if opts.do_class:
+            opts.use_gan = False
+
         if opts.use_gan:
-            nnD = models.buildGAN(opts.input_channels,
-                                  opts.output_channels,
-                                  ngf=opts.cnn_ngf,
-                                  n_layers=opts.gan_layers)
+            nnD = models.buildDNet(opts.input_channels,
+                                   opts.output_channels,
+                                   ngf=opts.cnn_ngf,
+                                   n_layers=opts.gan_layers)
             lossD = torch.nn.BCELoss(size_average=True)
             optimizerD = optim.Adam(nnD.parameters(),
                                     lr=opts.adam_lr,
@@ -577,26 +571,19 @@ def main():
             logger.info('Preprocessing data from {}'.format(opts.te_data))
             te_data = dp.htrDataProcess(
                                          opts.te_data,
-                                         opts.img_size,
                                          os.path.join(opts.work_dir,'data','test'),
-                                         opts.regions_colors,
-                                         line_width=opts.line_width,
-                                         line_color=opts.line_color,
-                                         processes=opts.num_workers,
-                                         only_lines=opts.output_channels == 1,
-                                         opts=opts,
+                                         opts,
                                          logger=logger)
             te_data.pre_process()
             opts.te_img_list = te_data.img_list
             opts.te_label_list = te_data.label_list
-            opts.te_w_list = te_data.w_list
         
         transform = transforms.Compose([dataset.toTensor()])
 
         test_data = dataset.htrDataset(img_lst=opts.te_img_list,
                                         label_lst=opts.te_label_list,
-                                        w_lst=opts.te_w_list,
-                                        transform=transform)
+                                        transform=transform,
+                                        opts=opts)
         test_dataloader = DataLoader(test_data,
                                       batch_size=opts.batch_size,
                                       shuffle=opts.shuffle_data,
@@ -659,15 +646,9 @@ def main():
             logger.info('Preprocessing data from {}'.format(opts.prod_data))
             pr_data = dp.htrDataProcess(
                                          opts.prod_data,
-                                         opts.img_size,
                                          os.path.join(opts.work_dir,'data','prod'),
-                                         opts.regions_colors,
-                                         line_width=opts.line_width,
-                                         line_color=opts.line_color,
-                                         processes=opts.num_workers,
-                                         only_lines=opts.output_channels == 1,
+                                         opts,
                                          build_labels=False,
-                                         opts=opts,
                                          logger=logger)
             pr_data.pre_process()
             opts.prod_img_list = pr_data.img_list
@@ -675,7 +656,8 @@ def main():
         transform = transforms.Compose([dataset.toTensor()])
 
         prod_data = dataset.htrDataset(img_lst=opts.prod_img_list,
-                                       transform=transform)
+                                       transform=transform,
+                                       opts=opts)
         prod_dataloader = DataLoader(prod_data,
                                       batch_size=opts.batch_size,
                                       shuffle=opts.shuffle_data,
