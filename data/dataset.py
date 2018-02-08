@@ -50,6 +50,7 @@ class htrDataset(Dataset):
         #--- torch image: C X H X W
         #---Keep arrays on float32 format for GPU compatibility
         #--- Normalize to [-1,1] range
+        #--- TODO: Move norm comp and transforms to GPU
         image = (((2/255)*image.transpose((2,0,1)))-1).astype(np.float32)
         if self.build_label:
             fh = open(self.label_paths[idx],'r')

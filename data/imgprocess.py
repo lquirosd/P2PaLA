@@ -39,10 +39,12 @@ class htrDataProcess():
         self.processes = opts.num_workers
         self.approx_alg = opts.approx_alg
         self.num_segments = opts.num_segments
-        self.only_lines = opts.output_channels == 1
-        self.do_class = opts.do_class
+        self.ext_mode = opts.out_mode
+        self.do_class = opts.net_out_type == 'C'
+        self.max_vertex = opts.max_vertex
         self.line_color = 1 if opts.do_class else opts.line_color
-        if self.only_lines:
+        self.out_type = opts.net_out_type
+        if self.ext_mode == 'L':
             self.th_span = 64
         else:
             self.th_span = (self.classes[self.classes.keys()[1]]- \
@@ -71,7 +73,7 @@ class htrDataProcess():
                                [self.line_width]*l_list,
                                [self.line_color]*l_list,
                                [self.build_labels]*l_list,
-                               [self.only_lines]*l_list)
+                               [self.ext_mode]*l_list)
             #--- keep _processData out of the class in order to be pickable
             #--- Pool do not support not pickable objects
             #--- TODO: move func inside the class, and pass logger to it
@@ -111,22 +113,43 @@ class htrDataProcess():
         page = pageData(os.path.join(out_folder, 'page', img_id + '.xml'),
                         logger=self.logger)
         page.new_page(img_name, str(o_rows), str(o_cols)) 
-        if self.only_lines:
-            l_data = data[0]
-            reg_list = ['full_page']
-            colors = {'full_page':128}
-            r_data = np.zeros(l_data.shape,dtype='uint8')
+        ####
+        if self.out_type == 'C':
+            if self.ext_mode == 'L':
+                lines = data[0].astype(np.uint8) 
+                reg_list= ['full_page']
+                colors = {'full_page':128}
+                r_data = np.zeros(lines.shape, dtype=np.uint8)
+            elif self.ext_mode == 'R':
+                pass
+            elif self.ext_mode == 'LR':
+                lines = data[0].astype(np.uint8) 
+                r_data = data[1]
+                colors = self.classes
+            else:
+                pass
+        elif self.out_type == 'R':
+            if self.ext_mode == 'L':
+                l_color = (-1 - ((self.line_color*(2/255))-1))/2
+                lines = np.zeros(data[0].shape, dtype = np.uint8)
+                lines[data[0] >= l_color] = 1 
+                reg_list= ['full_page']
+                colors = {'full_page':128}
+                r_data = np.zeros(lines.shape, dtype=np.uint8)
+            elif self.ext_mode == 'R':
+                pass
+            elif self.ext_mode == 'LR':
+                l_color = (-1 - ((self.line_color*(2/255))-1))/2
+                lines = np.zeros(data[0].shape, dtype = np.uint8)
+                lines[data[0] >= l_color] = 1 
+                r_data = data[1]
+                colors = self.classes
+            else:
+                pass   
         else:
-            l_data = data[0]
-            r_data = data[1]
-            colors = self.classes
-        lines = np.zeros(l_data.shape,dtype='uint8')
-        #--- data comes on [-1, 1] range, but colors are in [0,255]
-        #--- apply threshold over two class layer, bg=-1
-        l_color = (-1 - ((self.line_color*(2/255))-1))/2
-        lines[l_data > l_color] = 1
-        reg_mask = np.zeros(l_data.shape,dtype='uint8')
-        lin_mask = np.zeros(l_data.shape,dtype='uint8')
+            pass
+        reg_mask = np.zeros(lines.shape,dtype='uint8')
+        lin_mask = np.zeros(lines.shape,dtype='uint8')
         r_id = 0
         kernel = np.ones((5,5),np.uint8)
 
@@ -135,9 +158,15 @@ class htrDataProcess():
             r_color = colors[reg]
             #--- fill the array is faster then create a new one or mult by 0
             reg_mask.fill(0)
-            lim_inf = ((r_color - self.th_span)*(2/255)) - 1
-            lim_sup = ((r_color + self.th_span)*(2/255)) - 1
-            reg_mask[np.where((r_data > lim_inf) & (r_data < lim_sup))] = 1
+            if self.out_type == 'R':
+                lim_inf = ((r_color - self.th_span)*(2/255)) - 1
+                lim_sup = ((r_color + self.th_span)*(2/255)) - 1
+                reg_mask[np.where((r_data > lim_inf) & (r_data < lim_sup))] = 1
+            elif self.out_type == 'C':
+                reg_mask[r_data == r_color] = 1
+            else:
+                pass
+
             _ , contours, hierarchy = cv2.findContours(reg_mask,
                                                    cv2.RETR_EXTERNAL,
                                                    cv2.CHAIN_APPROX_SIMPLE)
@@ -145,7 +174,7 @@ class htrDataProcess():
                 #--- remove small objects
                 if(cnt.shape[0] < 4):
                     continue
-                if(cv2.contourArea(cnt) < 0.1*self.out_size[0]):
+                if(cv2.contourArea(cnt) < 0.01*self.out_size[0]):
                     continue
                 #--- get lines inside the region
                 lin_mask.fill(0)
@@ -160,48 +189,55 @@ class htrDataProcess():
                 for x in approx.reshape(-1,2):
                     reg_coords = reg_coords + " {},{}".format(x[0],x[1])
 
-                cv2.fillConvexPoly(lin_mask,points=cnt, color=(1,1,1))
-                lin_mask = cv2.erode(lin_mask,kernel,iterations = 1)
-                lin_mask = cv2.dilate(lin_mask,kernel,iterations = 1)
-                reg_lines = lines * lin_mask
-                #--- search for the lines
-                _, l_cont, l_hier = cv2.findContours(reg_lines,
+                if not self.ext_mode == 'R':
+                    cv2.fillConvexPoly(lin_mask,points=cnt, color=(1,1,1))
+                    lin_mask = cv2.erode(lin_mask,kernel,iterations = 1)
+                    lin_mask = cv2.dilate(lin_mask,kernel,iterations = 1)
+                    reg_lines = lines * lin_mask
+                    #--- search for the lines
+                    _, l_cont, l_hier = cv2.findContours(reg_lines,
                                                   cv2.RETR_EXTERNAL,
                                                   cv2.CHAIN_APPROX_SIMPLE)
-                if (len(l_cont) == 0):
-                    continue
-                #--- Add region to XML only is there is some line
-                text_reg = page.add_element('TextRegion',
+                    if (len(l_cont) == 0):
+                        continue
+                    #--- Add region to XML only is there is some line
+                    text_reg = page.add_element('TextRegion',
                                             str(r_id),
                                             reg,
                                             reg_coords.strip())
-                n_lines = 0
-                for l_id,l_cnt in enumerate(l_cont):
-                    if(l_cnt.shape[0] < 4):
-                        continue
-                    if (cv2.contourArea(l_cnt) < 0.1*self.out_size[0]):
-                        continue
-                    #--- convert to convexHull if poly is not convex
-                    if (not cv2.isContourConvex(l_cnt)):
-                        l_cnt = cv2.convexHull(l_cnt)
-                    lin_coords = ''
-                    l_cnt = (l_cnt*cScale).astype('int32')
-                    for l_x in l_cnt.reshape(-1,2): 
-                        lin_coords = lin_coords + " {},{}".format(l_x[0],l_x[1])
-                    (is_line, approx_lin) = self._get_baseline(o_img, l_cnt)
-                    if is_line == False:
-                        continue
-                    text_line = page.add_element('TextLine',
+                    n_lines = 0
+                    for l_id,l_cnt in enumerate(l_cont):
+                        if(l_cnt.shape[0] < 4):
+                            continue
+                        if (cv2.contourArea(l_cnt) < 0.1*self.out_size[0]):
+                            continue
+                        #--- convert to convexHull if poly is not convex
+                        if (not cv2.isContourConvex(l_cnt)):
+                            l_cnt = cv2.convexHull(l_cnt)
+                        lin_coords = ''
+                        l_cnt = (l_cnt*cScale).astype('int32')
+                        for l_x in l_cnt.reshape(-1,2): 
+                            lin_coords = lin_coords + " {},{}".format(l_x[0],l_x[1])
+                        (is_line, approx_lin) = self._get_baseline(o_img, l_cnt)
+                        if is_line == False:
+                            continue
+                        text_line = page.add_element('TextLine',
                                                  str(l_id) + '_' + str(r_id),
                                                  reg,
                                                  lin_coords.strip(),
                                                  parent=text_reg)
-                    baseline = pa.points_to_str(approx_lin)
-                    page.add_baseline(baseline, text_line)
-                    n_lines += 1
-                #--- remove regions without text lines
-                if n_lines == 0:
-                    page.remove_element(text_reg)
+                        baseline = pa.points_to_str(approx_lin)
+                        page.add_baseline(baseline, text_line)
+                        n_lines += 1
+                    #--- remove regions without text lines
+                    if n_lines == 0:
+                        page.remove_element(text_reg)
+                else:
+                    text_reg = page.add_element('TextRegion',
+                                            str(r_id),
+                                            reg,
+                                            reg_coords.strip())
+
         page.save_xml()
 
     def _get_baseline(self,Oimg, Lpoly):
@@ -237,10 +273,10 @@ class htrDataProcess():
             return (False, [[0,0]])
         if self.approx_alg == 'optimal':
             #--- take only 100 points to build the baseline 
-            if points2D.shape[0] > self.opts.max_vertex:
+            if points2D.shape[0] > self.max_vertex:
                 points2D = points2D[np.linspace(0,
                                                 points2D.shape[0]-1,
-                                                self.opts.max_vertex,
+                                                self.max_vertex,
                                                 dtype=np.int)]
             (approxError, approxLin) = pa.poly_approx(points2D,
                                                   self.num_segments,
@@ -261,7 +297,7 @@ def _processData(params):
     Resize image and extract mask from PAGE file 
     """
     (img_path,out_size,out_folder,classes,
-        line_width,line_color,build_labels, only_lines) = params
+        line_width,line_color,build_labels, ext_mode) = params
     img_id = os.path.splitext(os.path.basename(img_path))[0]
     img_dir = os.path.dirname(img_path)
 
@@ -286,7 +322,7 @@ def _processData(params):
         #--- build lines mask
         lin_mask = gt_data.build_baseline_mask(out_size,line_color,line_width)
         #--- buid regions mask
-        if not only_lines:
+        if ext_mode == 'LR':
             reg_mask = gt_data.build_mask(out_size,'TextRegion', classes)
             label = np.array((lin_mask,reg_mask))
         else:

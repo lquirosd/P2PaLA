@@ -1,6 +1,6 @@
 from __future__ import print_function
 from __future__ import division
-#from builtins import range
+from builtins import range
 
 import logging
 import sys
@@ -17,12 +17,12 @@ from torchvision import  utils as vutils
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from tensorboardX import SummaryWriter
 
 from utils.optparse import Arguments as arguments
 from nn_models import models
 from data import dataset
 from data import imgprocess as dp
+import cPickle as pickle
 
 #--- reduce option isn't supported until pytorch 0.3.*
 #--- TODO: install v0.3.0 or implement L1loss by myself
@@ -187,17 +187,22 @@ def main():
         if not opts.no_display:
             import socket
             from datetime import datetime
-            if opts.use_global_log:
-                run_dir = opts.use_global_log
-            else:
-                run_dir = os.path.join(opts.work_dir, 'runs')
-            log_dir = os.path.join(run_dir, 
+            try:
+                from tensorboardX import SummaryWriter
+                if opts.use_global_log:
+                    run_dir = opts.use_global_log
+                else:
+                    run_dir = os.path.join(opts.work_dir, 'runs')
+                log_dir = os.path.join(run_dir, 
                                "".join([datetime.now().strftime('%b%d_%H-%M-%S'),
                                '_',socket.gethostname(), opts.log_comment]))
                                     
-            writer = SummaryWriter(log_dir=log_dir) 
-            logger.info('TensorBoard log will be stored at {}'.format(log_dir))
-            logger.info('run: tensorboard --logdir {}'.format(run_dir))
+                writer = SummaryWriter(log_dir=log_dir) 
+                logger.info('TensorBoard log will be stored at {}'.format(log_dir))
+                logger.info('run: tensorboard --logdir {}'.format(run_dir))
+            except:
+                logger.warning('tensorboardX is not installed, display logger set to OFF.')
+                opts.no_display = True
     
         #--- Build transforms
         if opts.flip_img:
@@ -253,7 +258,8 @@ def main():
         nnG = models.buildUnet(opts.input_channels,
                                opts.output_channels,
                                ngf=opts.cnn_ngf,
-                               use_class=opts.do_class)
+                               net_type=opts.net_out_type,
+                               out_mode=opts.out_mode)
         #--- TODO: create a funtion @ models to define loss function
         #--- TODO: create a funtion @ models to define loss function
         if opts.do_class:
@@ -286,12 +292,19 @@ def main():
             nnG.apply(models.weights_init_normal)
         logger.debug('GEN Network:\n{}'.format(nnG)) 
         logger.debug('GEN Network, number of parameters: {}'.format(nnG.num_params))
-        if opts.do_class:
-            opts.use_gan = False
 
         if opts.use_gan:
+            if opts.net_out_type == 'C':
+                if opts.out_mode == 'LR':
+                    d_out_ch = 2
+                else:
+                    d_out_ch = 1
+            elif opts.net_out_type == 'R':
+                d_out_ch = opts.output_channels
+            else:
+                pass
             nnD = models.buildDNet(opts.input_channels,
-                                   opts.output_channels,
+                                   d_out_ch,
                                    ngf=opts.cnn_ngf,
                                    n_layers=opts.gan_layers)
             lossD = torch.nn.BCELoss(size_average=True)
@@ -326,7 +339,7 @@ def main():
         best_tr = np.inf
         best_model = ''
         best_epoch = 0
-        for epoch in xrange(opts.epochs):
+        for epoch in range(opts.epochs):
             epoch_start = time.time()
             epoch_lossG = 0
             epoch_lossGAN = 0
@@ -338,23 +351,36 @@ def main():
                 optimizerG.zero_grad()
                 x = Variable(sample['image'])
                 y_gt = Variable(sample['label'])
-                #w = Variable(sample['w'], requires_grad=False)
                 if opts.use_gpu:
                     x = x.cuda()
                     y_gt = y_gt.cuda()
-                    #w = w.cuda()
                 y_gen = nnG(x)
-                g_loss = lossG(y_gen,y_gt)
+                if opts.out_mode == 'LR' and opts.net_out_type == 'C':
+                    y_l,y_r = torch.split(y_gt,1,dim=1)
+                    g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
+                else:
+                    g_loss = lossG(y_gen,y_gt)
                 #--- reduce is not implemented, average is implemented in loss
                 #--- function itself
                 #g_loss = g_loss * (1/y_gen.data[0].numel())
                 if opts.use_gan:
                     #nnD.apply(models.zero_bias)
                     optimizerD.zero_grad()
-                    real_D = torch.cat([x,y_gt],1)
+                    real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
                     y_dis_real = nnD(real_D)
-
-                    fake_D = torch.cat([x,y_gen],1).detach()
+                    if opts.net_out_type == 'C':
+                        if opts.out_mode == 'LR':
+                            _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
+                            _,arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
+                            y_fake = torch.cat([arg_l,arg_r],1)
+                            fake_D = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1).detach()
+                        elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                            _, arg_y = torch.max(y_gen,dim=1)
+                            fake_D = torch.cat([x,arg_y.type(torch.cuda.FloatTensor)],1).detach()
+                        else:
+                            pass
+                    else:
+                        fake_D = torch.cat([x,y_gen],1).detach()
                     y_dis_fake = nnD(fake_D) 
                     label_D_size = y_dis_real.size()
                     real_y = Variable(torch.FloatTensor(label_D_size).fill_(1.0),
@@ -372,7 +398,20 @@ def main():
                     #d_loss_fake.backward()
                     d_loss.backward()
                     optimizerD.step()
-                    g_fake = torch.cat([x,y_gen],1)
+                    #g_fake = torch.cat([x,y_gen],1)
+                    if opts.net_out_type == 'C':
+                        if opts.out_mode == 'LR':
+                            _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
+                            _,arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
+                            y_fake = torch.cat([arg_l,arg_r],1)
+                            g_fake = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1)
+                        elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                            _, arg_y = torch.max(y_gen,dim=1,keepdim=True)
+                            g_fake = torch.cat([x,arg_y.type(torch.cuda.FloatTensor)],1)
+                        else:
+                            pass
+                    else:
+                        g_fake = torch.cat([x,y_gen],1)
                     g_y = nnD(g_fake)
                     shared_loss = lossD(g_y,real_y) 
                     epoch_lossR += shared_loss.data[0]
@@ -385,7 +424,7 @@ def main():
                 optimizerG.step()
             #--- forward pass val
             if opts.do_val:
-                #val_loss = 0
+                val_loss = 0
                 for v_batch,v_sample in enumerate(val_dataloader):
                     #--- set vars to volatile, since bo backward used
                     v_img = Variable(v_sample['image'], volatile=True)
@@ -394,9 +433,13 @@ def main():
                         v_img = v_img.cuda()
                         v_label = v_label.cuda()
                     v_y = nnG(v_img)
-                    v_loss = lossG(v_y, v_label)
+                    if opts.out_mode == 'LR' and opts.net_out_type == 'C':
+                        v_l,v_r = torch.split(v_label,1,dim=1)
+                        v_loss = lossG(v_y[0],torch.squeeze(v_l)) + lossG(v_y[1],torch.squeeze(v_r))
+                    else:
+                        v_loss = lossG(v_y, v_label)
                     #v_loss = v_loss * (1/v_y.data[0].numel())
-                    val_loss += v_loss.data[0] / v_y.data.size()[0]
+                    val_loss += v_loss.data[0] / v_label.data.size()[0]
                 val_loss = val_loss/v_batch
             #--- Write to Logs
             if not opts.no_display:
@@ -451,30 +494,7 @@ def main():
                     state['nnD_state'] =            nnD.state_dict()
                     state['nnD_optimizer_state'] =  optimizerD.state_dict()
                 best_model = save_checkpoint(state, False, opts, logger, epoch)
-                #--- remove save image, TensorBoard compression makes the images
-                #--- useless
-                #if not opts.no_display:
-                #    #dim = y_gen.data.size()
-                #    #ex_dim = torch.ones(dim[0],3-dim[1],dim[2],dim[3])
-                #    #if opts.use_gpu:
-                #    #    ex_dim = ex_dim.cuda()
-                #    #o = torch.cat((y_gen.data,ex_dim),dim=1)
-                #    #o = vutils.make_grid(o, normalize=False, scale_each=True)
-                #    #t = torch.cat((y_gt.data,ex_dim),dim=1)
-                #    #t = vutils.make_grid(t, normalize=False, scale_each=True)
-                #    #writer.add_image('train/G_out', o, epoch)
-                #    #writer.add_image('train/GT', t, epoch)
-                #    if opts.do_val:
-                #        #v_dim = v_y.data.size()
-                #        #v_ex_dim = torch.ones(v_dim[0],3-v_dim[1],v_dim[2],v_dim[3])
-                #        #if opts.use_gpu:
-                #        #    v_ex_dim = v_ex_dim.cuda()
-                #        #v_o = torch.cat((v_y.data,v_ex_dim),dim=1)
-                #        #v_o = vutils.make_grid(v_o, normalize=False, scale_each=True)
-                #        #writer.add_image('val/G_out', v_o, epoch)
-                #        #v_t = torch.cat((v_label.data,v_ex_dim),dim=1)
-                #        #v_t = vutils.make_grid(v_t, normalize=False, scale_each=True)
-                #        #writer.add_image('val/GT', v_t, epoch)
+        
         logger.info('Trining stage done. total time taken: {}'.format(time.time()-train_start))
         #---- Train is done, next is to save validation inference
         if opts.do_val:
@@ -505,31 +525,45 @@ def main():
                     nnG.apply(models.off_dropout)
 
             for v_batch,v_sample in enumerate(val_dataloader):
-                #--- set vars to volatile, since bo backward used
+                #--- set vars to volatile, since no backward used
                 v_img = Variable(v_sample['image'], volatile=True)
                 v_label = Variable(v_sample['label'], volatile=True)
                 v_ids = v_sample['id']
                 if opts.use_gpu:
                     v_img = v_img.cuda()
                     v_label = v_label.cuda()
-                v_y = nnG(v_img)
+                v_y_gen = nnG(v_img)
+                if opts.net_out_type == 'C':
+                    if opts.out_mode == 'LR':
+                        _, v_l = torch.max(v_y_gen[0],dim=1,keepdim=True)
+                        _, v_r = torch.max(v_y_gen[1],dim=1,keepdim=True)
+                        v_y_gen = torch.cat([v_l, v_r],1)
+                    elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                        _, v_y_gen = torch.max(v_v_gen,dim=1,keepdim=True)
+                    else:
+                        pass
+                elif opts.net_out_type == 'R':
+                    pass
+                else:
+                    pass
                 #--- save out as image for visual check
-                for idx,data in enumerate(v_label.data):
-                    img = tensor2img(data)
-                    cv2.imwrite(os.path.join(res_path,
-                                             'mask', v_ids[idx] +'_gt.png'),img)
+                #for idx,data in enumerate(v_label.data):
+                #    img = tensor2img(data)
+                #    cv2.imwrite(os.path.join(res_path,
+                #                             'mask', v_ids[idx] +'_gt.png'),img)
                 for idx,data in enumerate(v_y.data):
-                    img = tensor2img(data)
-                    cv2.imwrite(os.path.join(res_path,
-                                             'mask', v_ids[idx] +'_out.png'),img)
+                    #img = tensor2img(data)
+                    #cv2.imwrite(os.path.join(res_path,
+                    #                         'mask', v_ids[idx] +'_out.png'),img)
                     va_data.gen_page(v_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
-        writer.add_graph(nnG, y_gen)
-        writer.close()
+        if not opts.no_display:
+            #writer.add_graph_onnx(nnG, y_gen)
+            writer.close()
     #--------------------------------------------------------------------------
     #---    TEST INFERENCE
     #--------------------------------------------------------------------------
@@ -549,7 +583,9 @@ def main():
             #--- Load Model 
             nnG = models.buildUnet(opts.input_channels,
                                    opts.output_channels,
-                                   ngf=opts.cnn_ngf)
+                                   ngf=opts.cnn_ngf,
+                                   net_type=opts.net_out_type,
+                                   out_mode=opts.out_mode)
             logger.info('Resumming from model {}'.format(opts.prev_model))
             checkpoint = torch.load(opts.prev_model)
             nnG.load_state_dict(checkpoint['nnG_state'])
@@ -597,8 +633,25 @@ def main():
                 te_x = te_x.cuda()
                 te_label = te_label.cuda()
             te_y_gen = nnG(te_x)
+            if opts.net_out_type == 'C':
+                if opts.out_mode == 'LR':
+                    _, te_l = torch.max(te_y_gen[0],dim=1,keepdim=True)
+                    _, te_r = torch.max(te_y_gen[1],dim=1,keepdim=True)
+                    te_y_gen = torch.cat([te_l, te_r],1)
+                elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                    _, te_y_gen = torch.max(te_y_gen,dim=1,keepdim=True)
+                else:
+                    pass
+            elif opts.net_out_type == 'R':
+                pass
+            else:
+                pass
+
             for idx,data in enumerate(te_y_gen.data):
                 #--- TODO: update this function to proccess C-dim tensors
+                fh = open(te_ids[idx] + '.pickle', 'w')
+                pickle.dump(data.cpu().float().numpy(),fh, -1)
+                fh.close()
                 te_data.gen_page(te_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
@@ -624,7 +677,9 @@ def main():
             #--- Load Model 
             nnG = models.buildUnet(opts.input_channels,
                                    opts.output_channels,
-                                   ngf=opts.cnn_ngf)
+                                   ngf=opts.cnn_ngf,
+                                   net_type=opts.net_out_type,
+                                   out_mode=opts.out_mode)
             logger.info('Resumming from model {}'.format(opts.prev_model))
             checkpoint = torch.load(opts.prev_model)
             nnG.load_state_dict(checkpoint['nnG_state'])
@@ -669,6 +724,19 @@ def main():
             if opts.use_gpu:
                 pr_x = pr_x.cuda()
             pr_y_gen = nnG(pr_x)
+            if opts.net_out_type == 'C':
+                if opts.out_mode == 'LR':
+                    _, pr_l = torch.max(pr_y_gen[0],dim=1,keepdim=True)
+                    _, pr_r = torch.max(pr_y_gen[1],dim=1,keepdim=True)
+                    pr_y_gen = torch.cat([pr_l, pr_r],1)
+                elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                    _, pr_y_gen = torch.max(pr_y_gen,dim=1,keepdim=True)
+                else:
+                    pass
+            elif opts.net_out_type == 'R':
+                pass
+            else:
+                pass
             for idx,data in enumerate(pr_y_gen.data):
                 #--- TODO: update this function to proccess C-dim tensors at GPU
                 pr_data.gen_page(pr_ids[idx],

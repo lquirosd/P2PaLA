@@ -125,9 +125,15 @@ class Arguments(object):
         net = self.parser.add_argument_group('Neural Networks Parameters')
         net.add_argument('--input_channels', default=3, type=int,
                          help='Number of channels of input data')
-        net.add_argument('--output_channels', default=2, type=int,
-                         help="""Number of channels of labels.
-                                 If =1 then only lines will be extracted.""")
+        #net.add_argument('--output_channels', default=2, type=int,
+        #                 help="""Number of channels of labels.
+        #                         If =1 then only lines will be extracted.""")
+        net.add_argument('--out_mode', default='LR', type=str,
+                        choices=['L','R','LR'],
+                        help="""Type of output:
+                        L: Only Text Lines will be extracted
+                        R: Only Regions will be extracted
+                        LR: Lines and Regions will be extracted""")
         net.add_argument('--cnn_ngf', default=64, type=int,
                          help='Number of filters of CNNs')
         n_meg = net.add_mutually_exclusive_group(required=False)
@@ -143,8 +149,11 @@ class Arguments(object):
         net.add_argument('--g_loss', default='L1', type=str,
                          choices=['L1','MSE','smoothL1'],
                          help='Loss function for G NN')
-        net.add_argument('--do_class', default=False, type=self._str_to_bool,
-                         help='Compute the problem as a classification instead of regresion')
+        net.add_argument('--net_out_type', default='C', type=str,
+                         choices=['C','R'],
+                         help="""Compute the problem as a classification or Regresion:
+                         C: Classification
+                         R: Regresion""")
         #----------------------------------------------------------------------
         #----- Define Optimizer parameters
         #----------------------------------------------------------------------
@@ -350,6 +359,27 @@ class Arguments(object):
                 raise argparse.ArgumentTypeError('Malformed argument {}'.format(c) + msg)
 
         return to_merge
+    
+    def _define_output_channels(self):
+        if self.opts.net_out_type == 'C':
+            if self.opts.out_mode == 'L':
+                n_ch = 2
+            elif self.opts.out_mode == 'R':
+                n_ch = 1 + len(self.opts.regions)
+            elif self.opts.out_mode == 'LR':
+                n_ch = 3 + len(self.opts.regions)
+            else:
+                raise argparse.ArgumentTypeError('Malformed argument --out_mode')
+            return n_ch
+        if self.opts.net_out_type == 'R':
+            if self.opts.net_out_type == 'L' or self.opts.out_mode == 'R':
+                n_ch = 1
+            elif self.opts.out_mode == 'LR':
+                n_ch = 2
+            else:
+                raise argparse.ArgumentTypeError('Malformed argument --out_mode')
+            return n_ch
+
 
     def parse(self):
         """Perform arguments parsing"""
@@ -371,6 +401,7 @@ class Arguments(object):
         self.opts.log_level_id = getattr(logging, self.opts.log_level.upper())
         self.opts.log_file = self.opts.work_dir +'/' + self.opts.exp_name + '.log'
         #--- build classes
+        self.opts.do_class = self.opts.net_out_type == 'C'
         self.opts.regions_colors = self._build_class_regions()
         self.opts.merged_regions = self._build_merged_regions()
         #--- add merde regions to color dic, so parent and merged will share the same color
@@ -379,8 +410,10 @@ class Arguments(object):
                 self.opts.regions_colors[child] = self.opts.regions_colors[parent]
 
         self.opts.checkpoints = os.path.join(self.opts.work_dir, 'checkpoints/')
-        if self.opts.do_class:
-            self.opts.line_color = 1
+        #if self.opts.do_class:
+        #    self.opts.line_color = 1
+        #--- define network output channels based on inputs
+        self.opts.output_channels = self._define_output_channels()
 
         return self.opts
     def __str__(self):

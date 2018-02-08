@@ -1,4 +1,6 @@
 from __future__ import print_function
+from builtins import range
+
 import sys
 import numpy as np
 try:
@@ -16,7 +18,7 @@ def main():
         data = pickle.load(fh)
     if data.ndim == 2:
         data = np.expand_dims(data,axis=0)
-    for ch in xrange(3-data.shape[0]):
+    for ch in range(3-data.shape[0]):
         data = np.concatenate([data,np.zeros((1,data.shape[1],data.shape[2]),dtype=np.uint8)])
     data = data.transpose((1,2,0)) 
     plt.imshow(data)

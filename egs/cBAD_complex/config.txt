@@ -12,7 +12,8 @@
 --max_vertex 100
 --batch_size 8
 --input_channels 3
---output_channels 1
+--out_mode L
+--net_out_type R
 --cnn_ngf 64
 --gan_layers 3
 --loss_lambda 100
