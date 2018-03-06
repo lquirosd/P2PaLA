@@ -10,9 +10,9 @@ import shutil
 import numpy as np
 import cv2
 import errno
+import signal
 
 import torch
-from torchvision import transforms
 from torchvision import  utils as vutils
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -21,12 +21,11 @@ import torch.optim as optim
 from utils.optparse import Arguments as arguments
 from nn_models import models
 from data import dataset
+from data import transforms as transforms
 from data import imgprocess as dp
 import cPickle as pickle
 
-#--- reduce option isn't supported until pytorch 0.3.*
-#--- TODO: install v0.3.0 or implement L1loss by myself
-loss_dic = {'L1':torch.nn.L1Loss(size_average=True),#reduce=False),
+loss_dic = {'L1':torch.nn.L1Loss(size_average=True),
             'MSE':torch.nn.MSELoss(size_average=True),
             'smoothL1':torch.nn.SmoothL1Loss(size_average=True),
             'NLL':torch.nn.NLLLoss(size_average=True)}
@@ -42,17 +41,20 @@ def tensor2img(image_tensor, imtype=np.uint8):
     image_numpy = ((np.transpose(image_numpy, (1, 2, 0)))+1) * 127.5
     return image_numpy.astype(imtype)
 
+#def signal_handler(signal,frame):
+#    stop_current_job = True
+
 def save_checkpoint(state, is_best, opts, logger, epoch, criterion=''):
     """
     Save current model to checkpoints dir
     """
     #--- borrowed from: https://github.com/pytorch/examples/blob/master/imagenet/main.py#L139
     if is_best:
-        out_file = os.path.join(opts.checkpoints, "".join(['best_under',criterion,'criterion.pth.tar']))
+        out_file = os.path.join(opts.checkpoints, "".join(['best_under',criterion,'criterion.pth']))
         torch.save(state, out_file)
         logger.info('Best model saved to {} at epoch {}'.format(out_file, str(epoch)))
     else:
-        out_file = os.path.join(opts.checkpoints, 'checkpoint.pth.tar')
+        out_file = os.path.join(opts.checkpoints, 'checkpoint.pth')
         torch.save(state, out_file)
         logger.info('Checkpoint saved to {} at epoch {}'.format(out_file, str(epoch)))
     return out_file
@@ -154,6 +156,9 @@ def main():
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
+    #--- handle Ctrl-C signal
+    #signal.signal(signal.SIGINT,signal_handler)
+
     #--- Get Input Arguments
     in_args = arguments(logger)
     opts = in_args.parse()
@@ -161,7 +166,7 @@ def main():
         logger.critical('Execution aborted due input errors...')
         exit(1)
     # create file handler which logs even debug messages
-    fh = logging.FileHandler(opts.log_file, mode='w')
+    fh = logging.FileHandler(opts.log_file, mode='a')
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -205,11 +210,15 @@ def main():
                 opts.no_display = True
     
         #--- Build transforms
-        if opts.flip_img:
-            transform = transforms.Compose([dataset.randomFlip(axis=2, prob=0.5),
-                                            dataset.toTensor()])
-        else:
-            transform = transforms.Compose([dataset.toTensor()])
+        #if opts.flip_img:
+        #    transform = tv_transforms.Compose([transforms.randomFlip(axis=2, prob=0.5),
+        #                                    transforms.toTensor(),transforms.normalizeTensor(0,1)])
+        #else:
+        #    transform = tv_transforms.Compose([transforms.affine(prob=0.5),
+        #                                       transforms.elastic(prob=0.5),
+        #                                       transforms.toTensor(),
+        #                                       transforms.normalizeTensor()])
+        transform = transforms.build_transforms(opts,train=True)
         #--- Get Train Data
         if opts.tr_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.tr_data))
@@ -234,7 +243,7 @@ def main():
         #--- Get Val data, if needed
         if opts.do_val:
             if opts.val_img_list == '':
-                logger.info('Preprocessing data from{}'.format(opts.val_data))
+                logger.info('Preprocessing data from {}'.format(opts.val_data))
                 va_data = dp.htrDataProcess(
                                              opts.val_data,
                                              os.path.join(opts.work_dir,'data','val/'),
@@ -243,10 +252,12 @@ def main():
                 va_data.pre_process()
                 opts.val_img_list = va_data.img_list
                 opts.val_label_list = va_data.label_list
+            #val_transform = tv_transforms.Compose([transforms.toTensor(),transforms.normalizeTensor()])
+            val_transform = transforms.build_transforms(opts,train=False)
 
             val_data = dataset.htrDataset(img_lst=opts.val_img_list,
                                           label_lst=opts.val_label_list,
-                                          transform=transform,
+                                          transform=val_transform,
                                           opts=opts)
             val_dataloader = DataLoader(val_data,
                                         batch_size=opts.batch_size,
@@ -356,9 +367,17 @@ def main():
                     y_gt = y_gt.cuda()
                 y_gen = nnG(x)
                 if opts.out_mode == 'LR' and opts.net_out_type == 'C':
+                    if (y_gen[0] != y_gen[0]).any() or (y_gen[1] != y_gen[1]).any():
+                        logger.error('NaN values found in hypotesis')
+                        logger.error("Inputs: {}".format(sample['id']))
+                        raise RuntimeError 
                     y_l,y_r = torch.split(y_gt,1,dim=1)
                     g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
                 else:
+                    if (y_gen != y_gen).any():
+                        logger.error('NaN values found in hypotesis')
+                        logger.error("Inputs: {}".format(sample['id']))
+                        raise RuntimeError 
                     g_loss = lossG(y_gen,y_gt)
                 #--- reduce is not implemented, average is implemented in loss
                 #--- function itself
@@ -366,20 +385,27 @@ def main():
                 if opts.use_gan:
                     #nnD.apply(models.zero_bias)
                     optimizerD.zero_grad()
-                    real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
-                    y_dis_real = nnD(real_D)
+                    #print(x.shape, y_gt.shape)
+                    #real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                    #y_dis_real = nnD(real_D)
                     if opts.net_out_type == 'C':
                         if opts.out_mode == 'LR':
+                            real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                            y_dis_real = nnD(real_D)
                             _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
                             _,arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
                             y_fake = torch.cat([arg_l,arg_r],1)
                             fake_D = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1).detach()
                         elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                            real_D = torch.cat([x,torch.unsqueeze(y_gt.type(torch.cuda.FloatTensor),1)],1)
+                            y_dis_real = nnD(real_D)
                             _, arg_y = torch.max(y_gen,dim=1)
-                            fake_D = torch.cat([x,arg_y.type(torch.cuda.FloatTensor)],1).detach()
+                            fake_D = torch.cat([x,torch.unsqueeze(arg_y.type(torch.cuda.FloatTensor),1)],1).detach()
                         else:
                             pass
                     else:
+                        real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                        y_dis_real = nnD(real_D)
                         fake_D = torch.cat([x,y_gen],1).detach()
                     y_dis_fake = nnD(fake_D) 
                     label_D_size = y_dis_real.size()
@@ -509,6 +535,14 @@ def main():
                     pass
                 else:
                     raise
+            if opts.save_prob_mat:
+                try:
+                    os.makedirs(os.path.join(res_path,'prob_mat'))
+                except OSError as exc:
+                    if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/prob_mat'):
+                        pass
+                    else:
+                        raise
             #--- Set model to eval, to perform inference step 
             if best_epoch == epoch:
                 nnG.eval()
@@ -533,13 +567,18 @@ def main():
                     v_img = v_img.cuda()
                     v_label = v_label.cuda()
                 v_y_gen = nnG(v_img)
+                if opts.save_prob_mat:
+                    for idx,data in enumerate(v_y_gen.data):
+                        fh = open(res_path + '/' + v_ids[idx] + '.pickle', 'w')
+                        pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        fh.close
                 if opts.net_out_type == 'C':
                     if opts.out_mode == 'LR':
                         _, v_l = torch.max(v_y_gen[0],dim=1,keepdim=True)
                         _, v_r = torch.max(v_y_gen[1],dim=1,keepdim=True)
                         v_y_gen = torch.cat([v_l, v_r],1)
                     elif opts.out_mode == 'L' or opts.out_mode == 'R':
-                        _, v_y_gen = torch.max(v_v_gen,dim=1,keepdim=True)
+                        _, v_y_gen = torch.max(v_y_gen,dim=1,keepdim=True)
                     else:
                         pass
                 elif opts.net_out_type == 'R':
@@ -551,7 +590,7 @@ def main():
                 #    img = tensor2img(data)
                 #    cv2.imwrite(os.path.join(res_path,
                 #                             'mask', v_ids[idx] +'_gt.png'),img)
-                for idx,data in enumerate(v_y.data):
+                for idx,data in enumerate(v_y_gen.data):
                     #img = tensor2img(data)
                     #cv2.imwrite(os.path.join(res_path,
                     #                         'mask', v_ids[idx] +'_out.png'),img)
@@ -577,6 +616,14 @@ def main():
                 pass
             else:
                 raise
+        if opts.save_prob_mat:
+            try:
+                os.makedirs(os.path.join(res_path,'prob_mat'))
+            except OSError as exc:
+                if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/prob_mat'):
+                    pass
+                else:
+                    raise
         logger.info('Results will be saved to {}'.format(res_path))
 
         if nnG == None:
@@ -603,6 +650,7 @@ def main():
                 nnG.apply(models.off_dropout)
 
         #--- get test data
+        test_start_time = time.time()
         if opts.te_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.te_data))
             te_data = dp.htrDataProcess(
@@ -614,7 +662,8 @@ def main():
             opts.te_img_list = te_data.img_list
             opts.te_label_list = te_data.label_list
         
-        transform = transforms.Compose([dataset.toTensor()])
+        #transform = tv_transforms.Compose([atoTensor(),dataset.normalizeTensor(0,1)])
+        transform = transforms.build_transforms(opts,train=False)
 
         test_data = dataset.htrDataset(img_lst=opts.te_img_list,
                                         label_lst=opts.te_label_list,
@@ -633,6 +682,11 @@ def main():
                 te_x = te_x.cuda()
                 te_label = te_label.cuda()
             te_y_gen = nnG(te_x)
+            if opts.save_prob_mat:
+                for idx,data in enumerate(te_y_gen.data):
+                    fh = open(res_path + '/' + te_ids[idx] + '.pickle', 'w')
+                    pickle.dump(data.cpu().float().numpy(),fh,-1)
+                    fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
                     _, te_l = torch.max(te_y_gen[0],dim=1,keepdim=True)
@@ -649,15 +703,15 @@ def main():
 
             for idx,data in enumerate(te_y_gen.data):
                 #--- TODO: update this function to proccess C-dim tensors
-                fh = open(te_ids[idx] + '.pickle', 'w')
-                pickle.dump(data.cpu().float().numpy(),fh, -1)
-                fh.close()
                 te_data.gen_page(te_ids[idx],
                                    data.cpu().float().numpy(),
                                    opts.regions,
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
+        test_end_time = time.time()
+        logger.info('Test stage done. total time taken: {}'.format(test_end_time-test_start_time))
+        logger.info('Average time per page: {}'.format((test_end_time-test_start_time)/test_data.__len__()))
     #--------------------------------------------------------------------------
     #---    PRODUCTION INFERENCE
     #--------------------------------------------------------------------------
@@ -671,6 +725,14 @@ def main():
                 pass
             else:
                 raise
+        if opts.save_prob_mat:
+            try:
+                os.makedirs(os.path.join(res_path,'prob_mat'))
+            except OSError as exc:
+                if exc.errno == errno.EEXIST and os.path.isdir(res_path + '/prob_mat'):
+                    pass
+                else:
+                    raise
         logger.info('Results will be saved to {}'.format(res_path))
 
         if nnG == None:
@@ -697,6 +759,7 @@ def main():
                 nnG.apply(models.off_dropout)
 
         #--- get prod data
+        prod_start_time = time.time()
         if opts.prod_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.prod_data))
             pr_data = dp.htrDataProcess(
@@ -708,7 +771,8 @@ def main():
             pr_data.pre_process()
             opts.prod_img_list = pr_data.img_list
         
-        transform = transforms.Compose([dataset.toTensor()])
+        #transform = tv_transforms.Compose([transforms.toTensor(),transforms.normalizeTensor(0,1)])
+        transform = transforms.build_transforms(opts,train=False)
 
         prod_data = dataset.htrDataset(img_lst=opts.prod_img_list,
                                        transform=transform,
@@ -724,6 +788,11 @@ def main():
             if opts.use_gpu:
                 pr_x = pr_x.cuda()
             pr_y_gen = nnG(pr_x)
+            if opts.save_prob_mat:
+                for idx,data in enumerate(pr_y_gen.data):
+                    fh = open(res_path + '/' + pr_ids[idx] + '.pickle', 'w')
+                    pickle.dump(data.cpu().float().numpy(),fh,-1)
+                    fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
                     _, pr_l = torch.max(pr_y_gen[0],dim=1,keepdim=True)
@@ -745,6 +814,9 @@ def main():
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
+        prod_end_time = time.time()
+        logger.info('Production stage done. total time taken: {}'.format(prod_end_time-prod_start_time))
+        logger.info('Average time per page: {}'.format((prod_end_time-prod_start_time)/prod_data.__len__()))
 
     logger.info('All Done...')
                 

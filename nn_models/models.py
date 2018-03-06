@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn import init
 
 #------------------------------------------------------------------------------
@@ -81,6 +82,7 @@ class uSkipBlock(nn.Module):
         self.id = i_id
         self.out_mode = out_mode
         #self.output_nc = 2 * output_nc
+        #--- TODO: move nn.Tanh to FW, then if/else R/C is not necessary
         if (self.type == 'R'):
             #--- Handle out block
             e_conv = nn.Conv2d(input_nc,inner_nc,kernel_size=4,
@@ -96,7 +98,8 @@ class uSkipBlock(nn.Module):
             d_conv = nn.ConvTranspose2d(2*inner_nc, output_nc,kernel_size=4,
                                         stride=2,padding=1,bias=False)
             d_non_lin = nn.ReLU(True)
-            model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Softmax2d()]
+            #model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Softmax2d()]
+            model = [e_conv] + [inner_slave] + [d_non_lin, d_conv]
             
         elif (self.type == 'center'):
             #--- Handle center case
@@ -132,19 +135,31 @@ class uSkipBlock(nn.Module):
             return self.model(input_x)
         elif self.type == 'C':
             if self.out_mode == 'L' or self.out_mode == 'R':
-                if self.training:
-                    return torch.log(self.model(input_x))
-                else:
-                    return self.model(input_x)
+                #if self.training:
+                #    #return torch.log(self.model(input_x))
+                #    return F.log_softmax(self.model(input_x),dim=1)
+                #else:
+                #    #return self.model(input_x)
+                #    return F.softmax(self.model(input_x),dim=1)
+                return F.log_softmax(self.model(input_x),dim=1)
             elif self.out_mode == 'LR':
-                if self.training:
-                    l_x = torch.log(self.model(input_x))
-                    d_size = l_x.size(1)
-                    return size_splits(l_x,[2,d_size-2], dim=1)
-                else:
-                    l_x = self.model(input_x)
-                    d_size = l_x.size(1)
-                    return size_splits(l_x,[2,d_size-2], dim=1)
+                #if self.training:
+                #    #l_x = torch.log(self.model(input_x))
+                #    #d_size = l_x.size(1)
+                #    #return size_splits(l_x,[2,d_size-2], dim=1)
+                #    x = self.model(input_x)
+                #    l,r = size_splits(x,[2,x.size(1)-2],dim=1)
+                #    return (F.log_softmax(l,dim=1),F.log_softmax(r,dim=1))
+                #else:
+                #    #l_x = self.model(input_x)
+                #    #d_size = l_x.size(1)
+                #    #return size_splits(l_x,[2,d_size-2], dim=1)
+                #    x = self.model(input_x)
+                #    l,r = size_splits(x,[2,x.size(1)-2],dim=1)
+                #    return (F.softmax(l,dim=1),F.softmax(r,dim=1))
+                x = self.model(input_x)
+                l,r = size_splits(x,[2,x.size(1)-2],dim=1)
+                return (F.log_softmax(l,dim=1),F.log_softmax(r,dim=1))
             else:
                 pass
         else:

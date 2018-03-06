@@ -25,7 +25,7 @@ Requirements
 - [PyTorch](http://pytorch.org) (0.2.0\_4). `conda install pytorch torchvision -c pytorch`
 - [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). `conda install -c menpo opencv`
 - NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal modification, but untested).
-- [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX`
+- [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
 
 Usage
 =====

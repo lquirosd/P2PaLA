@@ -6,7 +6,10 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+#from torchvision import transforms
 import cv2
+#from scipy.ndimage.interpolation import map_coordinates
+#from scipy.ndimage.filters import gaussian_filter
 import logging
 
 try:
@@ -73,34 +76,90 @@ class htrDataset(Dataset):
 
         return sample
 
-class toTensor(object):
-    """Convert dataset sample (ndarray) to tensor"""
-    def __call__(self,sample):
-        for k,v in sample.iteritems():
-            if type(v) is np.ndarray:
-                #--- by default float arrays will be converted to float tensors
-                #--- and int arrays to long tensor.
-                sample[k] = torch.from_numpy(v)
-        return sample
-
-class randomFlip(object):
-    """randomly flip image in a sample"""
-    def __init__(self,axis=1,prob=0.5):
-        self.axis = axis
-        self.prob = prob
-
-    def __call__(self,sample):
-        if torch.rand(1)[0] < self.prob:
-            #--- TODO: Check why is a must to copy the array here
-            #--- if not error raises: RuntimeError: some of the strides of a
-            #---    given numpy array are negative. This is currently not 
-            #---    supported, but will be added in future releases.
-            for k,v in sample.iteritems():
-                if type(v) is np.ndarray:
-                    sample[k] = np.flip(v, self.axis).copy()
-            return sample
-        else:
-            return sample
-
-#--- TODO: Add normalize transform 
-
+#class toTensor(object):
+#    """Convert dataset sample (ndarray) to tensor"""
+#    def __call__(self,sample):
+#        for k,v in sample.iteritems():
+#            if type(v) is np.ndarray:
+#                #--- by default float arrays will be converted to float tensors
+#                #--- and int arrays to long tensor.
+#                sample[k] = torch.from_numpy(v)
+#        return sample
+#
+#class randomFlip(object):
+#    """randomly flip image in a sample"""
+#    def __init__(self,axis=1,prob=0.5):
+#        self.axis = axis
+#        self.prob = prob
+#
+#    def __call__(self,sample):
+#        if torch.rand(1)[0] < self.prob:
+#            #--- TODO: Check why is a must to copy the array here
+#            #--- if not error raises: RuntimeError: some of the strides of a
+#            #---    given numpy array are negative. This is currently not 
+#            #---    supported, but will be added in future releases.
+#            for k,v in sample.iteritems():
+#                if type(v) is np.ndarray:
+#                    sample[k] = np.flip(v, self.axis).copy()
+#            return sample
+#        else:
+#            return sample
+#
+##--- TODO: Add normalize transform 
+#class normalizeTensor(object):
+#    """Normalize image to given meand and std"""
+#    def __init__(self,mean=0,std=1):
+#        self.mean = mean
+#        self.std = std
+#
+#    def __call__(self,sample):
+#        mean = []
+#        std = []
+#        if torch.is_tensor(sample['image']): 
+#            for t in sample['image']:
+#                mean.append(t.mean())
+#                std.append(t.std())
+#            for i,t in enumerate(sample['image']):
+#                t.sub_(mean[i]).div_(std[i])
+#        else:
+#            raise TypeError('Input image is not a tensor, make sure to queue this after toTensor transform')
+#        return sample
+#
+#class elastic_transform(object):
+#    """
+#    Elastric transformation over the image.
+#    Based on:
+#    @inproceedings{Simard03,
+#        author = {Simard, Patrice Y. and Steinkraus, Dave and Platt, John},
+#        title = {Best Practices for Convolutional Neural Networks Applied to Visual Document Analysis},
+#        booktitle = {},
+#        year = {2003},
+#        month = {August},
+#        publisher = {Institute of Electrical and Electronics Engineers, Inc.},
+#        url = {https://www.microsoft.com/en-us/research/publication/best-practices-for-convolutional-neural-networks-applied-to-visual-document-analysis/},
+#    }
+#    """
+#    def __init__(self,alpha=34, sigma=4,prob=0.5):
+#        self.alpha = alpha
+#        self.sigma = sigma
+#        self.prob = prob
+#        self.rnd = None
+#
+#    def __call__(self,sample):
+#
+#        if torch.rand(1)[0] < self.prob:
+#            if self.rnd is None:
+#                self.rnd = np.random.RandomState(None)
+#            shape = sample['image'][0].shape
+#            dx = gaussian_filter((self.rnd.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
+#            dy = gaussian_filter((self.rnd.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
+#            #dx = gaussian_filter((torch.rand(shape) * 2 - 1).numpy(), self.sigma, mode="constant", cval=0) * self.alpha
+#            #dy = gaussian_filter((torch.rand(shape) * 2 - 1).numpy(), self.sigma, mode="constant", cval=0) * self.alpha
+#            x, y = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
+#            indices = np.reshape(x+dx, (-1, 1)), np.reshape(y+dy, (-1, 1))
+#            sample['image'][0] = map_coordinates(sample['image'][0], indices, order=1).reshape(shape)
+#            sample['image'][1] = map_coordinates(sample['image'][1], indices, order=1).reshape(shape)
+#            sample['image'][2] = map_coordinates(sample['image'][2], indices, order=1).reshape(shape)
+#            sample['label']= map_coordinates(sample['label'], indices, order=1).reshape(shape)
+#
+#        return sample

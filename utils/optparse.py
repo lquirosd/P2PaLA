@@ -5,7 +5,7 @@ import numpy as np
 from collections import OrderedDict
 import argparse 
 import os
-from math import log
+#from math import log
 import multiprocessing
 import logging
 
@@ -37,8 +37,7 @@ class Arguments(object):
         general.add_argument('--exp_name', default='layout_exp', type=str, 
                              help="""Name of the experiment. Models and data 
                                        will be stored into a folder under this name""")
-        general.add_argument('--work_dir', default='./work/', 
-                             type=self._check_out_dir, 
+        general.add_argument('--work_dir', default='./work/', type=str, 
                              help='Where to place output data')
         #--- Removed, input data should be handled by {tr,val,te,prod}_data variables
         #general.add_argument('--data_path', default='./data/', 
@@ -95,6 +94,8 @@ class Arguments(object):
         data.add_argument('--max_vertex', default=10, type=int,
                           help="""Maximun number of vertex used to approximate
                                the baselined when use 'optimal' algorithm""")
+        data.add_argument('--save_prob_mat', default=False, type=bool,
+                          help='Save Network Prob Matrix at Inference')
         #----------------------------------------------------------------------
         #----- Define dataloader parameters
         #----------------------------------------------------------------------
@@ -119,6 +120,24 @@ class Arguments(object):
         l_meg3.add_argument('--no-flip_img', dest='flip_img', action='store_false',
                             help='Do not randomly flip images during training')
         l_meg3.set_defaults(flip_img=False)
+        loader.add_argument('--elastic_def', default=True, type=bool,
+                            help="Use elastic deformation during training")
+        loader.add_argument('--e_alpha', default=0.045, type=float,
+                            help="alpha value for elastic deformations")
+        loader.add_argument('--e_stdv', default=4, type=float,
+                            help="std dev value for elastic deformations")
+        loader.add_argument('--affine_trans', default=True, type=bool,
+                            help="Use affine transformations during training")
+        loader.add_argument('--t_stdv', default=0.02, type=float,
+                            help="std deviation of normal dist. used in translate")
+        loader.add_argument('--r_kappa', default=30, type=float,
+                            help="concentration of von mises dist. used in rotate")
+        loader.add_argument('--sc_stdv', default=0.12, type=float,
+                            help="std deviation of log-normal dist. used in scale")
+        loader.add_argument('--sh_kappa', default=20, type=float,
+                            help="concentration of von mises dist. used in shear")
+        loader.add_argument('--trans_prob', default=0.5, type=float,
+                            help="probabiliti to perform a transformation")
         #----------------------------------------------------------------------
         #----- Define NN parameters
         #----------------------------------------------------------------------
@@ -372,7 +391,7 @@ class Arguments(object):
                 raise argparse.ArgumentTypeError('Malformed argument --out_mode')
             return n_ch
         if self.opts.net_out_type == 'R':
-            if self.opts.net_out_type == 'L' or self.opts.out_mode == 'R':
+            if self.opts.out_mode == 'L' or self.opts.out_mode == 'R':
                 n_ch = 1
             elif self.opts.out_mode == 'LR':
                 n_ch = 2
@@ -409,6 +428,8 @@ class Arguments(object):
             for child in childs:
                 self.opts.regions_colors[child] = self.opts.regions_colors[parent]
 
+        #--- TODO: Move this create dir to check inputs function
+        self. _check_out_dir(self.opts.work_dir)
         self.opts.checkpoints = os.path.join(self.opts.work_dir, 'checkpoints/')
         #if self.opts.do_class:
         #    self.opts.line_color = 1

@@ -17,6 +17,7 @@ except:
 
 from page_xml.xmlPAGE import pageData
 from utils import polyapprox as pa
+#import matplotlib.pyplot as plt
 
 #--- TODO: add logging to _pre_process function
 
@@ -100,6 +101,7 @@ class htrDataProcess():
         self.num_segments = self.num_segments if num_segments==None else num_segments
         self.logger.debug('Gen PAGE for image: {}'.format(img_id))
         #--- sym link to original image 
+        #--- TODO: check if orig image exist
         img_name = os.path.basename(self.img_data[img_id])
         symlink_force(os.path.realpath(self.img_data[img_id]),
                       os.path.join(out_folder,img_name))
@@ -117,8 +119,10 @@ class htrDataProcess():
         if self.out_type == 'C':
             if self.ext_mode == 'L':
                 lines = data[0].astype(np.uint8) 
+                #plt.imshow(lines)
+                #plt.show()
                 reg_list= ['full_page']
-                colors = {'full_page':128}
+                colors = {'full_page':0}
                 r_data = np.zeros(lines.shape, dtype=np.uint8)
             elif self.ext_mode == 'R':
                 pass
