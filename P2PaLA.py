@@ -230,6 +230,15 @@ def main():
             tr_data.pre_process()
             opts.tr_img_list = tr_data.img_list
             opts.tr_label_list = tr_data.label_list
+        else:
+            logger.info('Reading data from pre-processed input {}'.format(opts.tr_img_list))
+            tr_data = dp.htrDataProcess(
+                                        opts.tr_data,
+                                        os.path.join(opts.work_dir,'data','train'),
+                                        opts,
+                                        logger=logger)
+            tr_data.set_img_list(opts.tr_img_list)
+            tr_data.set_label_list(opts.tr_label_list)
 
         train_data = dataset.htrDataset(img_lst=opts.tr_img_list,
                                         label_lst=opts.tr_label_list,

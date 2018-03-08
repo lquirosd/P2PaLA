@@ -9,6 +9,8 @@ import os
 import multiprocessing
 import logging
 
+import art
+
 class Arguments(object):
     """
     """
@@ -407,11 +409,22 @@ class Arguments(object):
         #---    1) command line arguments
         #---    2) config file arguments
         #---    3) default arguments
-        self.opts = self.parser.parse_args()
+        self.opts, unkwn = self.parser.parse_known_args()
+        if unkwn:
+            msg = 'unrecognized command line arguments: {}\n'.format(unkwn)
+            msg += 'A more detailed message about error should be here, for now take this maze:\n'
+            msg += art.make_maze()
+            self.parser.error(msg)
+
         #--- Parse config file if defined
         if self.opts.config != None:
             self.logger.info('Reading configuration from {}'.format(self.opts.config))
-            self.opts = self.parser.parse_args(['@' + self.opts.config], namespace=self.opts)
+            self.opts, unkwn_conf = self.parser.parse_known_args(['@' + self.opts.config], namespace=self.opts)
+            if unkwn_conf:
+                msg = 'unrecognized  arguments in config file: {}\n'.format(unkwn_conf)
+                msg += 'A more detailed message about error should be here, for now take this maze:\n'
+                msg += art.make_maze()
+                self.parser.error(msg)
             self.opts = self.parser.parse_args(namespace=self.opts)
         #--- Preprocess some input variables
         #--- enable/disable

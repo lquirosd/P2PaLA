@@ -50,6 +50,38 @@ class htrDataProcess():
         else:
             self.th_span = (self.classes[self.classes.keys()[1]]- \
                     self.classes[self.classes.keys()[0]])/2 
+
+    def set_img_list(self,list_file):
+        """
+        """
+        self.img_list = list_file
+        try:
+            with open(list_file, 'r') as fh:
+                self.img_paths = fh.readlines()
+        except IOerror:
+            logger.error("File {} doesn't exist or isn't readable".format(file))
+            raise
+
+        self.img_paths = [x.rstrip() for x in self.img_paths]
+        img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
+        self.img_data = dict(zip(img_ids,self.img_paths))
+
+    def set_label_list(self, list_file):
+        """
+        """
+        self.label_list = list_file
+        #--- make sure file in list is readable
+        for f in self.label_list:
+            try:
+                with open(f,'r') as fh:
+                    pass
+            except IOerror:
+                logger.error("File {} doesn't exist or isn't readable".format(file))
+                raise
+    
+    def pre_process(self):
+        """
+        """
         #--- Create output folder if not exist
         if not os.path.exists(self.out_folder):
             self.logger.debug('Creating {} folder...'.format(self.out_folder))
@@ -60,32 +92,49 @@ class htrDataProcess():
             self.img_paths.extend(glob.glob(self.data_pointer + '/*.' + ext))
         img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
         self.img_data = dict(zip(img_ids,self.img_paths))
-    
-    def pre_process(self):
-        """
-        """
+
         processed_data = []
-        try:
-            pool = Pool(processes=self.processes) #--- call without parameters = Pool(processes=cpu_count())
-            l_list = len(self.img_paths)
-            params = itertools.izip(self.img_paths,[self.out_size]*l_list,
-                               [self.out_folder]*l_list,
-                               [self.classes]*l_list,
-                               [self.line_width]*l_list,
-                               [self.line_color]*l_list,
-                               [self.build_labels]*l_list,
-                               [self.ext_mode]*l_list)
-            #--- keep _processData out of the class in order to be pickable
-            #--- Pool do not support not pickable objects
-            #--- TODO: move func inside the class, and pass logger to it
-            processed_data = pool.map(_processData,params)
-        except Exception as e:
-            pool.close()
-            pool.terminate()
-            self.logger.error(e)
-        else:
-            pool.close()
-            pool.join()
+        #--- remove parallel execution since for some reason sub-process get freze 
+        #--- after the second call of the class.
+        #--- TODO: fix it
+        #try:
+        #    pool = Pool(processes=self.processes) #--- call without parameters = Pool(processes=cpu_count())
+        #    l_list = len(self.img_paths)
+        #    params = itertools.izip(self.img_paths,[self.out_size]*l_list,
+        #                       [self.out_folder]*l_list,
+        #                       [self.classes]*l_list,
+        #                       [self.line_width]*l_list,
+        #                       [self.line_color]*l_list,
+        #                       [self.build_labels]*l_list,
+        #                       [self.ext_mode]*l_list)
+        #    #--- keep _processData out of the class in order to be pickable
+        #    #--- Pool do not support not pickable objects
+        #    #--- TODO: move func inside the class, and pass logger to it
+        #    #processed_data = pool.map(_processData,params)
+        #    print(params)
+        #    for i in pool.imap_unordered(_processData,params):
+        #        print(i)
+        #        processed_data.append(i)
+        #
+        #except Exception as e:
+        #    pool.close()
+        #    pool.terminate()
+        #    self.logger.error(e)
+        #else:
+        #    #pool.close()
+        #    pool.terminate()
+        #    pool.join()
+
+        #    l_list = len(self.img_paths)
+        for i in self.img_paths:
+            processed_data.append(_processData((i,
+                                                self.out_size,
+                                                self.out_folder,
+                                                self.classes,
+                                                self.line_width,
+                                                self.line_color,
+                                                self.build_labels,
+                                                self.ext_mode)))
         processed_data = np.array(processed_data)
         np.savetxt(self.out_folder + '/img.lst',processed_data[:,0],fmt='%s')
         if self.build_labels:
