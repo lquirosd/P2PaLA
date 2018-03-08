@@ -13,7 +13,7 @@ import errno
 import signal
 
 import torch
-from torchvision import  utils as vutils
+#from torchvision import  utils as vutils
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import torch.optim as optim

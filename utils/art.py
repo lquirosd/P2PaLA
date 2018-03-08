@@ -23,6 +23,9 @@ def make_maze(w = 16, h = 8):
     walk(randrange(w), randrange(h))
  
     s = ""
+    ver[0][0] = "   "
+    hor[-1][-2]="+  "
     for (a, b) in zip(hor, ver):
+        #s += ''.join(a + ['\n'] + b + ['\n'])
         s += ''.join(a + ['\n'] + b + ['\n'])
     return s

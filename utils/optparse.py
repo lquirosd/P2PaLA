@@ -10,6 +10,7 @@ import multiprocessing
 import logging
 
 import art
+from eval import levenshtein
 
 class Arguments(object):
     """
@@ -400,6 +401,18 @@ class Arguments(object):
             else:
                 raise argparse.ArgumentTypeError('Malformed argument --out_mode')
             return n_ch
+    
+    def shortest_arg(self,arg):
+        """
+        search for the shortest valid argument using levenshtein edit distance
+        """
+        d = {key: (1000,key) for key in arg}
+        for k in vars(self.opts):
+            for t in arg:
+                l = levenshtein(k,t)
+                if l < d[t][0]:
+                    d[t] = (l,k)
+        return ['--' + d[k][1] for k in arg]
 
 
     def parse(self):
@@ -412,7 +425,8 @@ class Arguments(object):
         self.opts, unkwn = self.parser.parse_known_args()
         if unkwn:
             msg = 'unrecognized command line arguments: {}\n'.format(unkwn)
-            msg += 'A more detailed message about error should be here, for now take this maze:\n'
+            msg += 'do you mean: {}\n'.format(self.shortest_arg(unkwn))
+            msg += 'In the meanwile, solve this maze:\n'
             msg += art.make_maze()
             self.parser.error(msg)
 
@@ -422,7 +436,8 @@ class Arguments(object):
             self.opts, unkwn_conf = self.parser.parse_known_args(['@' + self.opts.config], namespace=self.opts)
             if unkwn_conf:
                 msg = 'unrecognized  arguments in config file: {}\n'.format(unkwn_conf)
-                msg += 'A more detailed message about error should be here, for now take this maze:\n'
+                msg += 'do you mean: {}\n'.format(self.shortest_arg(unkwn_conf))
+                msg += 'In the meanwile, solve this maze:\n'
                 msg += art.make_maze()
                 self.parser.error(msg)
             self.opts = self.parser.parse_args(namespace=self.opts)
