@@ -233,10 +233,12 @@ class affine(object):
             else:
                 sample['image'] = affine_transform(sample['image'],T)
             if np.ndim(sample['label']) > 2:
+                #--- affine transform over label must keep values in the matrix
+                #--- then, no interpolation or adding is performed
                 for t in sample['label']:
-                    t[:] = affine_transform(t,T)
+                    t[:] = affine_transform(t,T,mode='nearest',order=0)
             else:
-                sample['label'] = affine_transform(sample['label'],T)
+                sample['label'] = affine_transform(sample['label'],T,mode='nearest',order=0)
             
             return sample
 
