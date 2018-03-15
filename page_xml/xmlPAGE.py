@@ -79,6 +79,22 @@ class pageData():
                                     'Coords']))[0].attrib.get('points').split()
         return np.array([i.split(',') for i in str_coords]).astype(np.int)
 
+    def get_polygons(self,element_name):
+        """
+        returns a list of polygons for the element desired
+        """
+        polygons = []
+        for element in self.root.findall("".join([".//",self.base,element_name])):
+            #--- get element type
+            e_type = self.get_region_type(element)
+            if (e_type == None ):
+                self.logger.warning('Element type "{}"undefined, set to "other"'.format(e_type))
+                e_type = 'other'
+
+            polygons.append([self.get_coords(element),e_type])
+
+        return polygons
+
     def build_mask(self,out_size,element_name, color_dic):
         """
         Builds a "image" mask of desired elements
@@ -207,8 +223,8 @@ class pageData():
         ET.SubElement(metadata, 'LastChange').text = datetime.datetime.today().strftime('%Y-%m-%dT%X')
         self.page = ET.SubElement(self.xml, 'Page')
         self.page.attrib = {'imageFilename':name,
-                            'imageWidth':rows,
-                            'imageHeight':cols}
+                            'imageWidth':cols,
+                            'imageHeight':rows}
     
     def add_element(self, r_class, r_id, r_type, r_coords, parent=None):
         """add element to parent node"""

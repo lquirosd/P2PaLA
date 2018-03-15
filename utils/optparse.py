@@ -10,7 +10,7 @@ import multiprocessing
 import logging
 
 import art
-from eval import levenshtein
+from evalTools.metrics import levenshtein
 
 class Arguments(object):
     """
@@ -287,7 +287,15 @@ class Arguments(object):
                                  train, if not provide it will be generated from
                                  original data.
                                  """)
-        
+        #----------------------------------------------------------------------
+        #----- Define Evaluation parameters
+        #----------------------------------------------------------------------
+        evaluation = self.parser.add_argument_group('Evaluation Parameters')
+        evaluation.add_argument('--target_list',default='', type=str,
+                                help='List of ground-truth PAGE-XML files')
+        evaluation.add_argument('--hyp_list',default='', type=str,
+                                help='List of hypotesis PAGE-XMLfiles')
+
 
     def _convert_file_to_args(self,arg_line):
         return arg_line.split(' ')

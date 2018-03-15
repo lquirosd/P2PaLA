@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 import errno
 import signal
+import gc
 
 import torch
 #from torchvision import  utils as vutils
@@ -24,6 +25,7 @@ from data import dataset
 from data import transforms as transforms
 from data import imgprocess as dp
 import cPickle as pickle
+from evalTools import  page2page_eval
 
 loss_dic = {'L1':torch.nn.L1Loss(size_average=True),
             'MSE':torch.nn.MSELoss(size_average=True),
@@ -210,14 +212,6 @@ def main():
                 opts.no_display = True
     
         #--- Build transforms
-        #if opts.flip_img:
-        #    transform = tv_transforms.Compose([transforms.randomFlip(axis=2, prob=0.5),
-        #                                    transforms.toTensor(),transforms.normalizeTensor(0,1)])
-        #else:
-        #    transform = tv_transforms.Compose([transforms.affine(prob=0.5),
-        #                                       transforms.elastic(prob=0.5),
-        #                                       transforms.toTensor(),
-        #                                       transforms.normalizeTensor()])
         transform = transforms.build_transforms(opts,train=True)
         #--- Get Train Data
         if opts.tr_img_list == '':
@@ -261,7 +255,6 @@ def main():
                 va_data.pre_process()
                 opts.val_img_list = va_data.img_list
                 opts.val_label_list = va_data.label_list
-            #val_transform = tv_transforms.Compose([transforms.toTensor(),transforms.normalizeTensor()])
             val_transform = transforms.build_transforms(opts,train=False)
 
             val_data = dataset.htrDataset(img_lst=opts.val_img_list,
@@ -369,11 +362,13 @@ def main():
                 #--- Reset Grads
                 #nnG.apply(models.zero_bias)
                 optimizerG.zero_grad()
-                x = Variable(sample['image'])
-                y_gt = Variable(sample['label'])
+                x = Variable(sample['image'], requires_grad=False)
+                #y_gt_D = Variable(sample['label'].clone().type(torch.FloatTensor), requires_grad=False)
+                y_gt = Variable(sample['label'], requires_grad=False)
                 if opts.use_gpu:
                     x = x.cuda()
                     y_gt = y_gt.cuda()
+                    #y_gt_D = y_gt_D.cuda()
                 y_gen = nnG(x)
                 if opts.out_mode == 'LR' and opts.net_out_type == 'C':
                     if (y_gen[0] != y_gen[0]).any() or (y_gen[1] != y_gen[1]).any():
@@ -394,15 +389,13 @@ def main():
                 if opts.use_gan:
                     #nnD.apply(models.zero_bias)
                     optimizerD.zero_grad()
-                    #print(x.shape, y_gt.shape)
-                    #real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
-                    #y_dis_real = nnD(real_D)
                     if opts.net_out_type == 'C':
                         if opts.out_mode == 'LR':
                             real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                            #real_D = torch.cat([x,y_gt_D],1)
                             y_dis_real = nnD(real_D)
                             _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
-                            _,arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
+                            _, arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
                             y_fake = torch.cat([arg_l,arg_r],1)
                             fake_D = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1).detach()
                         elif opts.out_mode == 'L' or opts.out_mode == 'R':
@@ -429,11 +422,8 @@ def main():
                     d_loss_fake = lossD(y_dis_fake,fake_y)
                     d_loss = (d_loss_real + d_loss_fake) * 0.5
                     epoch_lossD += d_loss.data[0]
-                    #d_loss_real.backward()
-                    #d_loss_fake.backward()
                     d_loss.backward()
                     optimizerD.step()
-                    #g_fake = torch.cat([x,y_gen],1)
                     if opts.net_out_type == 'C':
                         if opts.out_mode == 'LR':
                             _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
@@ -609,9 +599,16 @@ def main():
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
+                #--- metrics are taked over the generated PAGE-XML files instead
+                #--- of teh current data and label becouse image size may be different
+                #--- than the processed image, then during evaluation final image
+                #--- must be used
+                _ = page2page_eval.compute_metrics(va_data.hyp_xml_list,
+                                                   va_data.gt_xml_list,
+                                                   opts)
         if not opts.no_display:
-            #writer.add_graph_onnx(nnG, y_gen)
             writer.close()
+    
     #--------------------------------------------------------------------------
     #---    TEST INFERENCE
     #--------------------------------------------------------------------------
@@ -671,7 +668,6 @@ def main():
             opts.te_img_list = te_data.img_list
             opts.te_label_list = te_data.label_list
         
-        #transform = tv_transforms.Compose([atoTensor(),dataset.normalizeTensor(0,1)])
         transform = transforms.build_transforms(opts,train=False)
 
         test_data = dataset.htrDataset(img_lst=opts.te_img_list,
@@ -721,6 +717,13 @@ def main():
         test_end_time = time.time()
         logger.info('Test stage done. total time taken: {}'.format(test_end_time-test_start_time))
         logger.info('Average time per page: {}'.format((test_end_time-test_start_time)/test_data.__len__()))
+        #--- metrics are taked over the generated PAGE-XML files instead
+        #--- of teh current data and label becouse image size may be different
+        #--- than the processed image, then during evaluation final image
+        #--- must be used
+        _ = page2page_eval.compute_metrics(te_data.hyp_xml_list,
+                                                    te_data.gt_xml_list,
+                                                    opts, logger=logger) 
     #--------------------------------------------------------------------------
     #---    PRODUCTION INFERENCE
     #--------------------------------------------------------------------------
@@ -780,7 +783,6 @@ def main():
             pr_data.pre_process()
             opts.prod_img_list = pr_data.img_list
         
-        #transform = tv_transforms.Compose([transforms.toTensor(),transforms.normalizeTensor(0,1)])
         transform = transforms.build_transforms(opts,train=False)
 
         prod_data = dataset.htrDataset(img_lst=opts.prod_img_list,

@@ -45,6 +45,7 @@ class htrDataProcess():
         self.max_vertex = opts.max_vertex
         self.line_color = 1 if opts.do_class else opts.line_color
         self.out_type = opts.net_out_type
+        self.hyp_xml_list = []
         if self.ext_mode == 'L':
             self.th_span = 64
         else:
@@ -140,6 +141,8 @@ class htrDataProcess():
         if self.build_labels:
             np.savetxt(self.out_folder + '/label.lst',processed_data[:,1],fmt='%s')
             self.label_list = self.out_folder + '/label.lst'
+            self.gt_xml_list = processed_data[:,2]
+            self.gt_xml_list.sort()
         self.img_list = self.out_folder + '/img.lst'
 
     def gen_page(self,img_id,data, reg_list=None, out_folder='./',
@@ -163,6 +166,8 @@ class htrDataProcess():
         
         page = pageData(os.path.join(out_folder, 'page', img_id + '.xml'),
                         logger=self.logger)
+        self.hyp_xml_list.append(page.filepath)
+        self.hyp_xml_list.sort()
         page.new_page(img_name, str(o_rows), str(o_cols)) 
         ####
         if self.out_type == 'C':
@@ -385,8 +390,8 @@ def _processData(params):
         fh = open(new_label_path,'w')
         pickle.dump(label,fh,-1)
         fh.close()
-        return (new_img_path, new_label_path)
-    return (new_img_path, None)
+        return (new_img_path, new_label_path, xml_path)
+    return (new_img_path, None, None)
 
 def symlink_force(target, link_name):
     #--- from https://stackoverflow.com/questions/8299386/modifying-a-symlink-in-python
