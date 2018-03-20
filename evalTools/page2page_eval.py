@@ -10,9 +10,10 @@ import shutil
 import numpy as np
 import cv2
 import errno
-import gc
+#import gc
 import subprocess
 import tempfile
+from collections import OrderedDict
 
 from utils.optparse import Arguments as arguments
 from page_xml.xmlPAGE import pageData
@@ -26,6 +27,8 @@ def compute_metrics(hyp,target,opts,logger=None):
 
     num_samples = len(target)
     metrics = {}
+    #--- force dict to appear in the same order always
+    summary = OrderedDict()
     if opts.out_mode == 'L' or opts.out_mode == 'LR':
         metrics.update({'p_bl' : np.empty(num_samples,dtype=np.float),
                         'r_bl' : np.empty(num_samples,dtype=np.float),
@@ -36,7 +39,6 @@ def compute_metrics(hyp,target,opts,logger=None):
         #--- Transkribus tool need it 
         t_fd, t_path = tempfile.mkstemp(suffix='.lst')
         h_fd, h_path = tempfile.mkstemp(suffix='.lst')
-        print(t_path,h_path)
         try:
             with os.fdopen(t_fd, 'w') as tmp:
                 tmp.write('\n'.join(target))
@@ -48,7 +50,7 @@ def compute_metrics(hyp,target,opts,logger=None):
                                     stdout=subprocess.PIPE, 
                                     stderr=subprocess.PIPE)
             bl_results, _err = cmd.communicate()
-            print(_err)
+            logger.debug(_err)
         finally:
             os.remove(t_path)
             os.remove(h_path)
@@ -64,6 +66,9 @@ def compute_metrics(hyp,target,opts,logger=None):
         logger.info(bl_results[-6])
         logger.info(bl_results[-5])
         logger.info(bl_results[-4])
+        summary['p_bl'] = bl_results[-6]
+        summary['r_bl'] = bl_results[-5]
+        summary['f1_bl'] = bl_results[-4]
 
     if opts.out_mode == 'R' or opts.out_mode == 'LR':
         metrics.update ({'p_acc' : np.empty(num_samples,dtype=np.float),
@@ -97,11 +102,13 @@ def compute_metrics(hyp,target,opts,logger=None):
         #metrics['m_struct'][i] = ev.matching_structure(h_polygons,t_polygons)
         #ev.matching_structure(h_polygons,t_polygons)
 
-    logger.info("Pixel accuraccy:  {}".format(metrics['p_acc'].sum()/num_samples))
-    logger.info("Mean accuraccy:   {}".format(metrics['m_acc'].sum()/num_samples))
-    logger.info("Mean IU:          {}".format(metrics['m_iu'].sum()/num_samples))
-    logger.info("freq weighted IU: {}".format(metrics['f_iu'].sum()/num_samples))
-    return metrics
+    summary.update({m: metrics[m].sum() / num_samples for m in metrics})
+    logger.info("Pixel accuraccy:  {}".format(summary['p_acc']))
+    logger.info("Mean accuraccy:   {}".format(summary['m_acc']))
+    logger.info("Mean IU:          {}".format(summary['m_iu']))
+    logger.info("freq weighted IU: {}".format(summary['f_iu']))
+    #--- return averages only 
+    return summary
 
 
 def main():

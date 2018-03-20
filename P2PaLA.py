@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 import errno
 import signal
-import gc
+#import gc
 
 import torch
 #from torchvision import  utils as vutils
@@ -182,6 +182,7 @@ def main():
     #--- Init model variable
     nnG = None
     bestState = None
+    torch.set_default_tensor_type("torch.FloatTensor")
     #--- configure TensorBoard display
     opts.img_size = np.array(opts.img_size, dtype=np.int)
     #--------------------------------------------------------------------------
@@ -352,6 +353,17 @@ def main():
         best_tr = np.inf
         best_model = ''
         best_epoch = 0
+        if opts.net_out_type == 'C' and opts.fix_class_imbalance:
+            if opts.out_mode == 'LR':
+                l_w = torch.from_numpy(train_data.w[0])
+                r_w = torch.from_numpy(train_data.w[1])
+                if opts.use_gpu:
+                    l_w = l_w.type(torch.FloatTensor).cuda()
+                    r_w = r_w.type(torch.FloatTensor).cuda()
+                class_weight = [l_w,r_w]
+            else:
+                lossG.weight = torch.from_numpy(train_data.w)
+
         for epoch in range(opts.epochs):
             epoch_start = time.time()
             epoch_lossG = 0
@@ -376,7 +388,14 @@ def main():
                         logger.error("Inputs: {}".format(sample['id']))
                         raise RuntimeError 
                     y_l,y_r = torch.split(y_gt,1,dim=1)
-                    g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
+                    if opts.fix_class_imbalance:
+                        lossG.weight = class_weight[0]
+                        g_loss = lossG(y_gen[0],torch.squeeze(y_l))
+                        lossG.weight = class_weight[1]
+                        g_loss += lossG(y_gen[1],torch.squeeze(y_r))
+                    else:
+                        g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
+                    #g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
                 else:
                     if (y_gen != y_gen).any():
                         logger.error('NaN values found in hypotesis')
@@ -603,9 +622,12 @@ def main():
                 #--- of teh current data and label becouse image size may be different
                 #--- than the processed image, then during evaluation final image
                 #--- must be used
-                _ = page2page_eval.compute_metrics(va_data.hyp_xml_list,
-                                                   va_data.gt_xml_list,
-                                                   opts)
+                va_results = page2page_eval.compute_metrics(va_data.hyp_xml_list,
+                                                            va_data.gt_xml_list,
+                                                            opts)
+                logger.info('-'*10 + 'VALIDARION RESULTS SUMMARY' + '-'*10)
+                logger.info(','.join(va_results.keys()))
+                logger.info(','.join(str(x) for x in va_results.values()))
         if not opts.no_display:
             writer.close()
     
@@ -721,9 +743,12 @@ def main():
         #--- of teh current data and label becouse image size may be different
         #--- than the processed image, then during evaluation final image
         #--- must be used
-        _ = page2page_eval.compute_metrics(te_data.hyp_xml_list,
+        te_results = page2page_eval.compute_metrics(te_data.hyp_xml_list,
                                                     te_data.gt_xml_list,
                                                     opts, logger=logger) 
+        logger.info('-'*10 + 'TEST RESULTS SUMMARY' + '-'*10)
+        logger.info(','.join(te_results.keys()))
+        logger.info(','.join(str(x) for x in te_results.values()))
     #--------------------------------------------------------------------------
     #---    PRODUCTION INFERENCE
     #--------------------------------------------------------------------------

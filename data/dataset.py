@@ -40,6 +40,37 @@ class htrDataset(Dataset):
             self.label_paths = open(label_lst, 'r').readlines()
             self.label_paths = [x.rstrip() for x in self.label_paths]
             self.build_label = True
+            #--- pre-compute per class weigths 
+            #--- one count is added per class in order to avoid zero prob.
+            if opts.out_mode == 'L':
+                self.w = np.ones(2,dtype=np.float)
+                for l in self.label_paths:
+                    with open(l,'r') as fh:
+                        label = pickle.load(fh)
+                    self.w += np.bincount(label.flatten(),minlength=2)
+                self.w = self.w/((len(self.label_paths) * opts.img_size.sum()) + 2)
+                self.w = 1/np.log(opts.weight_const + self.w)
+            if opts.out_mode == 'LR':
+                self.w = [np.ones(2,dtype=np.float), 
+                          np.ones(len(opts.regions) + 1,dtype=np.float)]
+                for l in self.label_paths:
+                    with open(l,'r') as fh:
+                        label = pickle.load(fh)
+                    self.w[0] += np.bincount(label[0].flatten(),minlength=2)
+                    self.w[1] += np.bincount(label[1].flatten(),minlength=len(opts.regions)+1)
+                self.w[0] = self.w[0]/((len(self.label_paths) * opts.img_size.sum()) + 2)
+                self.w[1] = self.w[1]/((len(self.label_paths) * opts.img_size.sum()) + len(opts.regions) + 1)
+                self.w[0] = 1/np.log(opts.weight_const + self.w[0])
+                self.w[1] = 1/np.log(opts.weight_const + self.w[1])
+            if opts.out_mode == 'R':
+                self.w = np.ones(len(opts.regions) + 1,dtype=np.float)
+                for l in self.label_paths:
+                    with open(l,'r') as fh:
+                        label = pickle.load(fh)
+                    self.w += np.bincount(label.flatten(),minlength=len(opts.regions))
+                self.w = self.w/((len(self.label_paths) * opts.img_size.sum()) + len(opts.regions) + 1)
+                self.w = 1/np.log(opts.weight_const + self.w)
+
         self.img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
         self.opts = opts
 
@@ -58,6 +89,7 @@ class htrDataset(Dataset):
         if self.build_label:
             fh = open(self.label_paths[idx],'r')
             label = pickle.load(fh)
+            #--- TODO: change to opts.net+out_type == C
             if self.opts.do_class:
                 #--- convert labels to np.int for compatibility to NLLLoss
                 label = label.astype(np.int)

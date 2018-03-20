@@ -216,6 +216,10 @@ class Arguments(object):
                            help="""List to all label ready to be used by NN
                                    train, if not provide it will be generated from
                                    original data.""")
+        train.add_argument('--fix_class_imbalance', default=True, type=bool,
+                            help='use weights at loss function to handle class imbalance.')
+        train.add_argument('--weight_const', default=1.02, type=float,
+                            help='weight constant to fix class imbalance')
         #----------------------------------------------------------------------
         #----- Define Test parameters
         #----------------------------------------------------------------------
