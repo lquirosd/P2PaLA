@@ -346,7 +346,6 @@ def main():
             logger.debug('DIS Network, number of parameters: {}'.format(nnD.num_params))
 
         #--- Do the actual train
-        #--- TODO: save model under "best" criterion 
         #--- TODO: compute statistical boostrap to define if a model is
         #---    statistically better than previous
         best_val = np.inf
@@ -361,8 +360,10 @@ def main():
                     l_w = l_w.type(torch.FloatTensor).cuda()
                     r_w = r_w.type(torch.FloatTensor).cuda()
                 class_weight = [l_w,r_w]
+                logger.debug('class weight: {}'.format(train_data.w))
             else:
-                lossG.weight = torch.from_numpy(train_data.w)
+                lossG.weight = torch.from_numpy(train_data.w).type(torch.FloatTensor).cuda()
+                logger.debug('class weight: {}'.format(train_data.w))
 
         for epoch in range(opts.epochs):
             epoch_start = time.time()
@@ -500,7 +501,6 @@ def main():
             #--- Save model under val or min loss
             if opts.do_val:
                 if best_val >= val_loss:
-                    best_val = val_loss
                     best_epoch = epoch
                     state = {
                             'nnG_state':            nnG.state_dict(),
@@ -512,9 +512,10 @@ def main():
                         state['nnD_optimizer_state'] =  optimizerD.state_dict()
                     best_model = save_checkpoint(state, True, opts, logger, epoch,
                                                  criterion='val' + opts.g_loss)
+                    logger.info("New best model, from {} to {}".format(best_val,val_loss))
+                    best_val = val_loss
             else:
                 if best_tr >= epoch_lossG:
-                    best_tr = epoch_lossG
                     best_epoch = epoch
                     state = {
                             'nnG_state':            nnG.state_dict(),
@@ -526,6 +527,8 @@ def main():
                         state['nnD_optimizer_state'] =  optimizerD.state_dict()
                     best_model = save_checkpoint(state, True, opts, logger, epoch,
                                                  criterion=opts.g_loss)
+                    logger.info("New best model, from {} to {}".format(best_tr,epoch_lossG))
+                    best_tr = epoch_lossG
             #--- Save checkpoint
             if epoch%opts.save_rate == 0 or epoch == opts.epochs - 1:
                 #--- save current model, to test load func
@@ -618,16 +621,16 @@ def main():
                                    approx_alg=opts.approx_alg,
                                    num_segments=opts.num_segments,
                                    out_folder=res_path)
-                #--- metrics are taked over the generated PAGE-XML files instead
-                #--- of teh current data and label becouse image size may be different
-                #--- than the processed image, then during evaluation final image
-                #--- must be used
-                va_results = page2page_eval.compute_metrics(va_data.hyp_xml_list,
-                                                            va_data.gt_xml_list,
-                                                            opts)
-                logger.info('-'*10 + 'VALIDARION RESULTS SUMMARY' + '-'*10)
-                logger.info(','.join(va_results.keys()))
-                logger.info(','.join(str(x) for x in va_results.values()))
+            #--- metrics are taked over the generated PAGE-XML files instead
+            #--- of teh current data and label becouse image size may be different
+            #--- than the processed image, then during evaluation final image
+            #--- must be used
+            va_results = page2page_eval.compute_metrics(va_data.hyp_xml_list,
+                                                        va_data.gt_xml_list,
+                                                        opts)
+            logger.info('-'*10 + 'VALIDARION RESULTS SUMMARY' + '-'*10)
+            logger.info(','.join(va_results.keys()))
+            logger.info(','.join(str(x) for x in va_results.values()))
         if not opts.no_display:
             writer.close()
     

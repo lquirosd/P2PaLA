@@ -102,11 +102,11 @@ def compute_metrics(hyp,target,opts,logger=None):
         #metrics['m_struct'][i] = ev.matching_structure(h_polygons,t_polygons)
         #ev.matching_structure(h_polygons,t_polygons)
 
-    summary.update({m: metrics[m].sum() / num_samples for m in metrics})
-    logger.info("Pixel accuraccy:  {}".format(summary['p_acc']))
-    logger.info("Mean accuraccy:   {}".format(summary['m_acc']))
-    logger.info("Mean IU:          {}".format(summary['m_iu']))
-    logger.info("freq weighted IU: {}".format(summary['f_iu']))
+        summary.update({m: metrics[m].sum() / num_samples for m in metrics})
+        logger.info("Pixel accuraccy:  {}".format(summary['p_acc']))
+        logger.info("Mean accuraccy:   {}".format(summary['m_acc']))
+        logger.info("Mean IU:          {}".format(summary['m_iu']))
+        logger.info("freq weighted IU: {}".format(summary['f_iu']))
     #--- return averages only 
     return summary
 

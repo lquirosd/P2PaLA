@@ -42,6 +42,8 @@ class htrDataset(Dataset):
             self.build_label = True
             #--- pre-compute per class weigths 
             #--- one count is added per class in order to avoid zero prob.
+            #--- weights will be restrict to the interval [1/log(1+c), 1/log(c)]
+            #--- for the default c=1.02 => [50.49,1.42]
             if opts.out_mode == 'L':
                 self.w = np.ones(2,dtype=np.float)
                 for l in self.label_paths:
