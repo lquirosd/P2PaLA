@@ -1,15 +1,17 @@
---exp_name cBAD_corpus
---work_dir ./work
+--exp_name Bozen_zones_only
+--work_dir ./work_zones_only
 --log_level DEBUG
 --num_workers 4
 --img_size 1024 768
 --line_color 128
 --line_width 8
+--regions paragraph marginalia page-number
+--merge_regions paragraph:heading
 --approx_alg optimal
 --num_segments 4
 --batch_size 8
 --input_channels 3
---out_mode L
+--out_mode R
 --net_out_type C
 --cnn_ngf 64
 --gan_layers 3
@@ -21,11 +23,10 @@
 --do_train
 --tr_data data/train/
 --no-do_val
---no-do_test
---prod_data data/test
---do_prod
+--do_test
+--te_data data/test
+--no-do_prod
 --epochs 200
 --use_gan
 --max_vertex 30
 --e_stdv 6
---fix_class_imbalance 0

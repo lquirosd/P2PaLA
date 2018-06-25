@@ -278,6 +278,7 @@ def main():
         #--- TODO: create a funtion @ models to define loss function
         if opts.do_class:
             lossG = loss_dic['NLL']
+            opts.g_loss = 'NLL'
         else:
             lossG = loss_dic[opts.g_loss]
         #--- TODO: implement other initializadion methods
@@ -590,7 +591,7 @@ def main():
                 v_y_gen = nnG(v_img)
                 if opts.save_prob_mat:
                     for idx,data in enumerate(v_y_gen.data):
-                        fh = open(res_path + '/' + v_ids[idx] + '.pickle', 'w')
+                        fh = open(res_path + '/prob_mat/' + v_ids[idx] + '.pickle', 'w')
                         pickle.dump(data.cpu().float().numpy(),fh,-1)
                         fh.close
                 if opts.net_out_type == 'C':
@@ -714,7 +715,7 @@ def main():
             te_y_gen = nnG(te_x)
             if opts.save_prob_mat:
                 for idx,data in enumerate(te_y_gen.data):
-                    fh = open(res_path + '/' + te_ids[idx] + '.pickle', 'w')
+                    fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
                     pickle.dump(data.cpu().float().numpy(),fh,-1)
                     fh.close
             if opts.net_out_type == 'C':
@@ -800,16 +801,26 @@ def main():
 
         #--- get prod data
         prod_start_time = time.time()
+        pr_data = dp.htrDataProcess(
+                                    opts.prod_data,
+                                    os.path.join(opts.work_dir,'data','prod'),
+                                    opts,
+                                    build_labels=False,
+                                    logger=logger)
         if opts.prod_img_list == '':
             logger.info('Preprocessing data from {}'.format(opts.prod_data))
-            pr_data = dp.htrDataProcess(
-                                         opts.prod_data,
-                                         os.path.join(opts.work_dir,'data','prod'),
-                                         opts,
-                                         build_labels=False,
-                                         logger=logger)
+            #pr_data = dp.htrDataProcess(
+            #                             opts.prod_data,
+            #                             os.path.join(opts.work_dir,'data','prod'),
+            #                             opts,
+            #                             build_labels=False,
+            #                             logger=logger)
             pr_data.pre_process()
             opts.prod_img_list = pr_data.img_list
+        else:
+            logger.info('Loading pre-processed data from {}'.format(opts.prod_img_list))
+            pr_data.set_img_list(opts.prod_img_list)
+
         
         transform = transforms.build_transforms(opts,train=False)
 
@@ -829,7 +840,7 @@ def main():
             pr_y_gen = nnG(pr_x)
             if opts.save_prob_mat:
                 for idx,data in enumerate(pr_y_gen.data):
-                    fh = open(res_path + '/' + pr_ids[idx] + '.pickle', 'w')
+                    fh = open(res_path + '/prob_mat/' + pr_ids[idx] + '.pickle', 'w')
                     pickle.dump(data.cpu().float().numpy(),fh,-1)
                     fh.close
             if opts.net_out_type == 'C':

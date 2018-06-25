@@ -5,6 +5,7 @@ from builtins import range
 import logging
 import sys
 import os
+
 import time
 import shutil
 import numpy as np
@@ -14,16 +15,28 @@ import errno
 import subprocess
 import tempfile
 from collections import OrderedDict
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../')
+try:
+    from utils.optparse import Arguments as arguments
+    from page_xml.xmlPAGE import pageData
+    from evalTools import metrics as ev
+except:
+    pass
 
-from utils.optparse import Arguments as arguments
-from page_xml.xmlPAGE import pageData
-from evalTools import metrics as ev
 #import matplotlib.pyplot as plt
 
 def compute_metrics(hyp,target,opts,logger=None):
     """
     """
-    logger = logging.getLogger(__name__) if logger==None else logger 
+    #logger = logging.getLogger(__name__) if logger==None else logger 
+    if logger==None:
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(module)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
 
     num_samples = len(target)
     metrics = {}
@@ -75,8 +88,11 @@ def compute_metrics(hyp,target,opts,logger=None):
                          'm_acc' : np.empty(num_samples,dtype=np.float),
                          'm_iu'  : np.empty(num_samples,dtype=np.float),
                          'f_iu'  : np.empty(num_samples,dtype=np.float)})
+        per_class_m = np.zeros((num_samples,np.unique(opts.regions_colors.values()).size+1),dtype=np.float)
         logger.info("-"*10 + "REGIONS EVALUATION RESULTS" + "-"*10)
         logger.debug("p_cc,m_acc,m_iu,f_iu,target_file,hyp_file")
+        hyp = np.sort(hyp)
+        target = np.sort(target)
         for i,(h,t) in enumerate(zip(hyp,target)):
             target_data = pageData(t)
             target_data.parse()
@@ -90,6 +106,12 @@ def compute_metrics(hyp,target,opts,logger=None):
             metrics['m_acc'][i] = ev.mean_accuraccy(hyp_mask,target_mask)
             metrics['m_iu'][i]  = ev.mean_IU(hyp_mask,target_mask)
             metrics['f_iu'][i]  = ev.freq_weighted_IU(hyp_mask,target_mask)
+            tmp = ev.per_class_accuraccy(hyp_mask,target_mask)
+            for m,c in zip(tmp[0],tmp[1]):
+                per_class_m[i,c] = m
+            
+            #per_class_m['pc_p_acc'][i] = ev.per_class_accuraccy(hyp_mask,target_mask)
+            #per_class_m += ev.per_class_accuraccy(hyp_mask,target_mask)[0]  
             logger.debug('{:.4f},{:.4f},{:.4f} {:.4f},{},{}'.format(
                         metrics['p_acc'][i],
                         metrics['m_acc'][i],
@@ -103,10 +125,15 @@ def compute_metrics(hyp,target,opts,logger=None):
         #ev.matching_structure(h_polygons,t_polygons)
 
         summary.update({m: metrics[m].sum() / num_samples for m in metrics})
-        logger.info("Pixel accuraccy:  {}".format(summary['p_acc']))
-        logger.info("Mean accuraccy:   {}".format(summary['m_acc']))
+        logger.info("Pixel accuracy:  {}".format(summary['p_acc']))
+        logger.info("Mean accuracy:   {}".format(summary['m_acc']))
         logger.info("Mean IU:          {}".format(summary['m_iu']))
         logger.info("freq weighted IU: {}".format(summary['f_iu']))
+        logger.info("Per_class Pixel accuracy: {}".format(per_class_m.sum(axis=0)/num_samples))
+        mm=per_class_m.sum(axis=0)/num_samples
+        print("BG:{}".format(mm[0]))
+        for n,c in opts.regions_colors.items():
+            print("{}:{}".format(n,mm[c]))
     #--- return averages only 
     return summary
 

@@ -5,6 +5,7 @@ import os
 import glob
 import logging
 import errno
+import sys
 
 import numpy as np
 import cv2
@@ -49,18 +50,21 @@ class htrDataProcess():
         if self.ext_mode == 'L':
             self.th_span = 64
         else:
-            self.th_span = (self.classes[self.classes.keys()[1]]- \
-                    self.classes[self.classes.keys()[0]])/2 
+            if len(self.classes.keys()) > 1:
+                self.th_span = (self.classes[self.classes.keys()[1]]- \
+                                self.classes[self.classes.keys()[0]])/2 
+            else:
+                self.th_span = 64
 
-    def set_img_list(self,list_file):
+    def set_img_list(self, list_file):
         """
         """
         self.img_list = list_file
         try:
             with open(list_file, 'r') as fh:
                 self.img_paths = fh.readlines()
-        except IOerror:
-            logger.error("File {} doesn't exist or isn't readable".format(file))
+        except IOError:
+            self.logger.error("File {} doesn't exist or isn't readable".format(list_file))
             raise
 
         self.img_paths = [x.rstrip() for x in self.img_paths]
@@ -72,13 +76,12 @@ class htrDataProcess():
         """
         self.label_list = list_file
         #--- make sure file in list is readable
-        for f in self.label_list:
-            try:
-                with open(f,'r') as fh:
-                    pass
-            except IOerror:
-                logger.error("File {} doesn't exist or isn't readable".format(file))
-                raise
+        try:
+            with open(list_file,'r') as fh:
+                pass
+        except IOError:
+            self.logger.error("File {} doesn't exist or isn't readable".format(list_file))
+            raise
     
     def pre_process(self):
         """
@@ -173,13 +176,13 @@ class htrDataProcess():
         if self.out_type == 'C':
             if self.ext_mode == 'L':
                 lines = data[0].astype(np.uint8) 
-                #plt.imshow(lines)
-                #plt.show()
                 reg_list= ['full_page']
                 colors = {'full_page':0}
                 r_data = np.zeros(lines.shape, dtype=np.uint8)
             elif self.ext_mode == 'R':
-                pass
+                r_data = data[0]
+                lines = np.zeros(r_data.shape, dtype=np.uint8)
+                colors = self.classes
             elif self.ext_mode == 'LR':
                 lines = data[0].astype(np.uint8) 
                 r_data = data[1]
@@ -195,7 +198,9 @@ class htrDataProcess():
                 colors = {'full_page':128}
                 r_data = np.zeros(lines.shape, dtype=np.uint8)
             elif self.ext_mode == 'R':
-                pass
+                r_data = data[1]
+                colors = self.classes
+                lines = np.zeros(r_data.shape, dtype=np.uint8)
             elif self.ext_mode == 'LR':
                 l_color = (-1 - ((self.line_color*(2/255))-1))/2
                 lines = np.zeros(data[0].shape, dtype = np.uint8)
@@ -206,7 +211,7 @@ class htrDataProcess():
                 pass   
         else:
             pass
-        reg_mask = np.zeros(lines.shape,dtype='uint8')
+        reg_mask = np.zeros(r_data.shape,dtype='uint8')
         lin_mask = np.zeros(lines.shape,dtype='uint8')
         r_id = 0
         kernel = np.ones((5,5),np.uint8)
@@ -267,7 +272,7 @@ class htrDataProcess():
                     for l_id,l_cnt in enumerate(l_cont):
                         if(l_cnt.shape[0] < 4):
                             continue
-                        if (cv2.contourArea(l_cnt) < 0.1*self.out_size[0]):
+                        if (cv2.contourArea(l_cnt) < 0.01*self.out_size[0]):
                             continue
                         #--- convert to convexHull if poly is not convex
                         if (not cv2.isContourConvex(l_cnt)):
@@ -324,9 +329,9 @@ class htrDataProcess():
         #--- gen a 2D list of points
         for i,j in enumerate(maxPoints):
             points[i,:] = [i,j]
-        #--- remove points at poss 0, there are high porbable to be blank spaces
+        #--- remove points at post 0, those are very probable to be blank columns
         points2D = points[points[:,1]>0]
-        if (points2D.size == 0):
+        if (points2D.size <= 15):
             #--- there is no real line
             return (False, [[0,0]])
         if self.approx_alg == 'optimal':
@@ -378,11 +383,14 @@ def _processData(params):
         gt_data = pageData(xml_path)
         gt_data.parse()
         #--- build lines mask
-        lin_mask = gt_data.build_baseline_mask(out_size,line_color,line_width)
+        if ext_mode != 'R':
+            lin_mask = gt_data.build_baseline_mask(out_size,line_color,line_width)
         #--- buid regions mask
         if ext_mode == 'LR':
             reg_mask = gt_data.build_mask(out_size,'TextRegion', classes)
             label = np.array((lin_mask,reg_mask))
+        elif ext_mode == 'R':
+            label = gt_data.build_mask(out_size,'TextRegion', classes)
         else:
             label = lin_mask
 

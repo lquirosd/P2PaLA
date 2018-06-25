@@ -94,7 +94,6 @@ def pixel_accuraccy(hyp,target):
     """
     return (target==hyp).sum()/target.size
 
-#-- mean accuraccy
 def per_class_accuraccy(hyp,target):
     """
     computes pixel by pixel accuraccy per class in target
@@ -103,10 +102,12 @@ def per_class_accuraccy(hyp,target):
     cl =  np.unique(target)
     n_cl = cl.size
     s = np.zeros(n_cl)
+    #s[0] = (target[target==hyp]==0).sum()/(target==0).sum()
     for i,c in enumerate(cl):
         s[i] = (target[target==hyp]==c).sum()/(target==c).sum()
     return (s, cl)
 
+#-- mean accuraccy
 def mean_accuraccy(hyp,target):
     """
     computes mean accuraccy: 1/n_cl * sum_i(n_ii/t_i)

@@ -23,7 +23,7 @@ class Arguments(object):
         NN Implentation for Layout Analysis
         """
         regions = ['$tip','$par','$not','$nop','$pag']
-        merge_regions = {'$par':['$pac']}
+        merge_regions = {}
         n_cpus = multiprocessing.cpu_count()
 
         self.parser = argparse.ArgumentParser(description=parser_description,

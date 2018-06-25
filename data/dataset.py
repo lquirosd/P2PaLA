@@ -69,7 +69,7 @@ class htrDataset(Dataset):
                 for l in self.label_paths:
                     with open(l,'r') as fh:
                         label = pickle.load(fh)
-                    self.w += np.bincount(label.flatten(),minlength=len(opts.regions))
+                    self.w += np.bincount(label.flatten(),minlength=len(opts.regions)+1)
                 self.w = self.w/((len(self.label_paths) * opts.img_size.sum()) + len(opts.regions) + 1)
                 self.w = 1/np.log(opts.weight_const + self.w)
 

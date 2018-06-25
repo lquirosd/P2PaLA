@@ -25,12 +25,12 @@ ICDAR 2017 Results
 ## Complex Track
 
 Following table shows results published on [ICDAR 2017](http://u-pat.org/ICDAR2017/index.php) proceddings 
-plus the results of this experiment (P2PaLA row).
+plus the results of this experiment (P2PaLA row), Nonparametric Bootstrapping confidence intervals at 95%, 10000 repetitions.
 
 |  Method  |  P   |  R   |  F1  | 
 |:---------|:----:|:----:|:----:|
 |  DMRZ    | **85.4** | **86.3** | **85.9** |
-|  **P2PaLA**  | 83.25 | 85.73 | 84.47 |
+|  **P2PaLA**  | 84.8[83.9, 85.7] | 85.4[84.4, 86.4] | 85.1 |
 |  BYU     | 77.3 | 82.0 | 79.6 |
 |  IRISA   | 69.2 | 77.2 | 73.0 |
 |  UPVLC   | 83.3 | 60.6 | 70.2 |
