@@ -5,9 +5,12 @@ import numpy as np
 from collections import OrderedDict
 import argparse 
 import os
-from math import log
+#from math import log
 import multiprocessing
 import logging
+
+import art
+from evalTools.metrics import levenshtein
 
 class Arguments(object):
     """
@@ -20,7 +23,7 @@ class Arguments(object):
         NN Implentation for Layout Analysis
         """
         regions = ['$tip','$par','$not','$nop','$pag']
-        merge_regions = {'$par':['$pac']}
+        merge_regions = {}
         n_cpus = multiprocessing.cpu_count()
 
         self.parser = argparse.ArgumentParser(description=parser_description,
@@ -37,8 +40,7 @@ class Arguments(object):
         general.add_argument('--exp_name', default='layout_exp', type=str, 
                              help="""Name of the experiment. Models and data 
                                        will be stored into a folder under this name""")
-        general.add_argument('--work_dir', default='./work/', 
-                             type=self._check_out_dir, 
+        general.add_argument('--work_dir', default='./work/', type=str, 
                              help='Where to place output data')
         #--- Removed, input data should be handled by {tr,val,te,prod}_data variables
         #general.add_argument('--data_path', default='./data/', 
@@ -95,6 +97,8 @@ class Arguments(object):
         data.add_argument('--max_vertex', default=10, type=int,
                           help="""Maximun number of vertex used to approximate
                                the baselined when use 'optimal' algorithm""")
+        data.add_argument('--save_prob_mat', default=False, type=bool,
+                          help='Save Network Prob Matrix at Inference')
         #----------------------------------------------------------------------
         #----- Define dataloader parameters
         #----------------------------------------------------------------------
@@ -119,15 +123,39 @@ class Arguments(object):
         l_meg3.add_argument('--no-flip_img', dest='flip_img', action='store_false',
                             help='Do not randomly flip images during training')
         l_meg3.set_defaults(flip_img=False)
+        loader.add_argument('--elastic_def', default=True, type=bool,
+                            help="Use elastic deformation during training")
+        loader.add_argument('--e_alpha', default=0.045, type=float,
+                            help="alpha value for elastic deformations")
+        loader.add_argument('--e_stdv', default=4, type=float,
+                            help="std dev value for elastic deformations")
+        loader.add_argument('--affine_trans', default=True, type=bool,
+                            help="Use affine transformations during training")
+        loader.add_argument('--t_stdv', default=0.02, type=float,
+                            help="std deviation of normal dist. used in translate")
+        loader.add_argument('--r_kappa', default=30, type=float,
+                            help="concentration of von mises dist. used in rotate")
+        loader.add_argument('--sc_stdv', default=0.12, type=float,
+                            help="std deviation of log-normal dist. used in scale")
+        loader.add_argument('--sh_kappa', default=20, type=float,
+                            help="concentration of von mises dist. used in shear")
+        loader.add_argument('--trans_prob', default=0.5, type=float,
+                            help="probabiliti to perform a transformation")
         #----------------------------------------------------------------------
         #----- Define NN parameters
         #----------------------------------------------------------------------
         net = self.parser.add_argument_group('Neural Networks Parameters')
         net.add_argument('--input_channels', default=3, type=int,
                          help='Number of channels of input data')
-        net.add_argument('--output_channels', default=2, type=int,
-                         help="""Number of channels of labels.
-                                 If =1 then only lines will be extracted.""")
+        #net.add_argument('--output_channels', default=2, type=int,
+        #                 help="""Number of channels of labels.
+        #                         If =1 then only lines will be extracted.""")
+        net.add_argument('--out_mode', default='LR', type=str,
+                        choices=['L','R','LR'],
+                        help="""Type of output:
+                        L: Only Text Lines will be extracted
+                        R: Only Regions will be extracted
+                        LR: Lines and Regions will be extracted""")
         net.add_argument('--cnn_ngf', default=64, type=int,
                          help='Number of filters of CNNs')
         n_meg = net.add_mutually_exclusive_group(required=False)
@@ -143,6 +171,11 @@ class Arguments(object):
         net.add_argument('--g_loss', default='L1', type=str,
                          choices=['L1','MSE','smoothL1'],
                          help='Loss function for G NN')
+        net.add_argument('--net_out_type', default='C', type=str,
+                         choices=['C','R'],
+                         help="""Compute the problem as a classification or Regresion:
+                         C: Classification
+                         R: Regresion""")
         #----------------------------------------------------------------------
         #----- Define Optimizer parameters
         #----------------------------------------------------------------------
@@ -183,6 +216,10 @@ class Arguments(object):
                            help="""List to all label ready to be used by NN
                                    train, if not provide it will be generated from
                                    original data.""")
+        train.add_argument('--fix_class_imbalance', default=True, type=bool,
+                            help='use weights at loss function to handle class imbalance.')
+        train.add_argument('--weight_const', default=1.02, type=float,
+                            help='weight constant to fix class imbalance')
         #----------------------------------------------------------------------
         #----- Define Test parameters
         #----------------------------------------------------------------------
@@ -254,7 +291,15 @@ class Arguments(object):
                                  train, if not provide it will be generated from
                                  original data.
                                  """)
-        
+        #----------------------------------------------------------------------
+        #----- Define Evaluation parameters
+        #----------------------------------------------------------------------
+        evaluation = self.parser.add_argument_group('Evaluation Parameters')
+        evaluation.add_argument('--target_list',default='', type=str,
+                                help='List of ground-truth PAGE-XML files')
+        evaluation.add_argument('--hyp_list',default='', type=str,
+                                help='List of hypotesis PAGE-XMLfiles')
+
 
     def _convert_file_to_args(self,arg_line):
         return arg_line.split(' ')
@@ -312,11 +357,18 @@ class Arguments(object):
 
     def _build_class_regions(self):
         """given a list of regions assign a equaly separated class to each one"""
+        class_dic = OrderedDict()
+        #--- for classification keep regions as a seq of intigers
+        if self.opts.do_class:
+            for c,r in enumerate(self.opts.regions):
+                class_dic[r] = c + 1
+            return class_dic
+        #--- for regresion put all values equally separated in the cont
+        #--- line from 0 to 255
         n_class = len(self.opts.regions)
         #--- div by n_claass + 1 because background is another "class"
         class_gap = int(256/n_class+1)
         class_id = int(class_gap /2) + class_gap
-        class_dic = OrderedDict()
         for c in self.opts.regions:
             class_dic[c] = class_id
             class_id = class_id + class_gap
@@ -341,6 +393,39 @@ class Arguments(object):
                 raise argparse.ArgumentTypeError('Malformed argument {}'.format(c) + msg)
 
         return to_merge
+    
+    def _define_output_channels(self):
+        if self.opts.net_out_type == 'C':
+            if self.opts.out_mode == 'L':
+                n_ch = 2
+            elif self.opts.out_mode == 'R':
+                n_ch = 1 + len(self.opts.regions)
+            elif self.opts.out_mode == 'LR':
+                n_ch = 3 + len(self.opts.regions)
+            else:
+                raise argparse.ArgumentTypeError('Malformed argument --out_mode')
+            return n_ch
+        if self.opts.net_out_type == 'R':
+            if self.opts.out_mode == 'L' or self.opts.out_mode == 'R':
+                n_ch = 1
+            elif self.opts.out_mode == 'LR':
+                n_ch = 2
+            else:
+                raise argparse.ArgumentTypeError('Malformed argument --out_mode')
+            return n_ch
+    
+    def shortest_arg(self,arg):
+        """
+        search for the shortest valid argument using levenshtein edit distance
+        """
+        d = {key: (1000,key) for key in arg}
+        for k in vars(self.opts):
+            for t in arg:
+                l = levenshtein(k,t)
+                if l < d[t][0]:
+                    d[t] = (l,k)
+        return ['--' + d[k][1] for k in arg]
+
 
     def parse(self):
         """Perform arguments parsing"""
@@ -349,11 +434,24 @@ class Arguments(object):
         #---    1) command line arguments
         #---    2) config file arguments
         #---    3) default arguments
-        self.opts = self.parser.parse_args()
+        self.opts, unkwn = self.parser.parse_known_args()
+        if unkwn:
+            msg = 'unrecognized command line arguments: {}\n'.format(unkwn)
+            msg += 'do you mean: {}\n'.format(self.shortest_arg(unkwn))
+            msg += 'In the meanwile, solve this maze:\n'
+            msg += art.make_maze()
+            self.parser.error(msg)
+
         #--- Parse config file if defined
         if self.opts.config != None:
             self.logger.info('Reading configuration from {}'.format(self.opts.config))
-            self.opts = self.parser.parse_args(['@' + self.opts.config], namespace=self.opts)
+            self.opts, unkwn_conf = self.parser.parse_known_args(['@' + self.opts.config], namespace=self.opts)
+            if unkwn_conf:
+                msg = 'unrecognized  arguments in config file: {}\n'.format(unkwn_conf)
+                msg += 'do you mean: {}\n'.format(self.shortest_arg(unkwn_conf))
+                msg += 'In the meanwile, solve this maze:\n'
+                msg += art.make_maze()
+                self.parser.error(msg)
             self.opts = self.parser.parse_args(namespace=self.opts)
         #--- Preprocess some input variables
         #--- enable/disable
@@ -362,6 +460,7 @@ class Arguments(object):
         self.opts.log_level_id = getattr(logging, self.opts.log_level.upper())
         self.opts.log_file = self.opts.work_dir +'/' + self.opts.exp_name + '.log'
         #--- build classes
+        self.opts.do_class = self.opts.net_out_type == 'C'
         self.opts.regions_colors = self._build_class_regions()
         self.opts.merged_regions = self._build_merged_regions()
         #--- add merde regions to color dic, so parent and merged will share the same color
@@ -369,7 +468,13 @@ class Arguments(object):
             for child in childs:
                 self.opts.regions_colors[child] = self.opts.regions_colors[parent]
 
+        #--- TODO: Move this create dir to check inputs function
+        self. _check_out_dir(self.opts.work_dir)
         self.opts.checkpoints = os.path.join(self.opts.work_dir, 'checkpoints/')
+        #if self.opts.do_class:
+        #    self.opts.line_color = 1
+        #--- define network output channels based on inputs
+        self.opts.output_channels = self._define_output_channels()
 
         return self.opts
     def __str__(self):

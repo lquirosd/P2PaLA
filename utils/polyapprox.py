@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division 
 from __future__ import print_function
+from builtins import range
 
 import numpy as np
 
@@ -51,6 +52,10 @@ def poly_approx(secPoints,vertM,delta):
     Author:
         lquirosd, 2017
     """
+    #--- if number of input point is less than M, return input
+    if secPoints.shape[0] <= vertM:
+        return (0.0,secPoints)
+
     secSize = secPoints.shape[0]
     #--- Define internal Variables
     #--- Dynamic programming matrix. The rows represent the input points and the colums the vertices.
@@ -64,13 +69,13 @@ def poly_approx(secPoints,vertM,delta):
     matD[0,0] = 0
     #matD[1:,0] = np.inf
     minArray = np.zeros((secSize),dtype=np.float)
-    for m in xrange(1,vertM):
-        for n in xrange(m,secSize):
+    for m in range(1,vertM):
+        for n in range(m,secSize):
             minArray.fill(np.inf)
             #--- Compute the cost of all nodes on current hypothesis.
             xK = yK = xxK = yyK = xyK= 0
-            #for i in xrange(m-1,n):
-            for i in xrange(n-1,m-2,-1):
+            #for i in range(m-1,n):
+            for i in range(n-1,m-2,-1):
                 (xK, yK, xxK, yyK, xyK, minArray[i]) = delta(secPoints,i,n, xK, yK, xxK, yyK, xyK)
                 minArray[i] = minArray[i] + matD[i,m-1]
             #--- Select only the best option
@@ -79,7 +84,7 @@ def poly_approx(secPoints,vertM,delta):
     #--- Retrive vertices of the polygon from the path matrix
     secVec[-1,:] = secPoints[-1]
     prev=secSize-1
-    for p in xrange(vertM-1,0,-1):
+    for p in range(vertM-1,0,-1):
         prev = pathMatrix[prev,p]
         secVec[p-1,:] = secPoints[prev]
     return (matD[secSize-1,vertM-1],secVec)
@@ -100,7 +105,7 @@ def norm_trace(sec_points, vert_m):
     seg_long = trace_long[-1] / (vert_m-1)
     output[0] = sec_points[0]
     n = 1
-    for m in xrange(1,vert_m-1):
+    for m in range(1,vert_m-1):
         while not((trace_long[n-1] <= m*seg_long) and (m*seg_long <= trace_long[n])):
             n += 1
         if trace_long[n-1]==trace_long[n]:
@@ -111,7 +116,4 @@ def norm_trace(sec_points, vert_m):
         output[m] = sec_points[n-1] + ((sec_points[n]-sec_points[n-1])*alpha)
     output[-1] = sec_points[-1]
     return output
-
-
-
 
