@@ -9,4 +9,6 @@ Documentation
 * [Neural Networks based Model](NN.md)
 * [Baseline Generation](baseline.md)
 * [Examples](../egs)
+    - [Bozen](../egs/Bozen/README.md)
     - [cBAD complex](../egs/cBAD_complex/README.md)
+    - [OHG](../egs/OHG/README.md)

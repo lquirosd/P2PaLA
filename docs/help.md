@@ -9,24 +9,32 @@ usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--regions REGIONS [REGIONS ...]]
                  [--merge_regions MERGE_REGIONS [MERGE_REGIONS ...]]
                  [--approx_alg {optimal,trace}] [--num_segments NUM_SEGMENTS]
-                 [--max_vertex MAX_VERTEX] [--batch_size BATCH_SIZE]
+                 [--max_vertex MAX_VERTEX] [--save_prob_mat SAVE_PROB_MAT]
+                 [--batch_size BATCH_SIZE]
                  [--shuffle_data | --no-shuffle_data]
                  [--pin_memory | --no-pin_memory] [--flip_img | --no-flip_img]
-                 [--input_channels INPUT_CHANNELS]
-                 [--output_channels OUTPUT_CHANNELS] [--cnn_ngf CNN_NGF]
-                 [--use_gan | --no-use_gan] [--gan_layers GAN_LAYERS]
-                 [--loss_lambda LOSS_LAMBDA] [--g_loss {L1,MSE,smoothL1}]
+                 [--elastic_def ELASTIC_DEF] [--e_alpha E_ALPHA]
+                 [--e_stdv E_STDV] [--affine_trans AFFINE_TRANS]
+                 [--t_stdv T_STDV] [--r_kappa R_KAPPA] [--sc_stdv SC_STDV]
+                 [--sh_kappa SH_KAPPA] [--trans_prob TRANS_PROB]
+                 [--input_channels INPUT_CHANNELS] [--out_mode {L,R,LR}]
+                 [--cnn_ngf CNN_NGF] [--use_gan | --no-use_gan]
+                 [--gan_layers GAN_LAYERS] [--loss_lambda LOSS_LAMBDA]
+                 [--g_loss {L1,MSE,smoothL1}] [--net_out_type {C,R}]
                  [--adam_lr ADAM_LR] [--adam_beta1 ADAM_BETA1]
                  [--adam_beta2 ADAM_BETA2] [--do_train | --no-do_train]
                  [--cont_train] [--prev_model PREV_MODEL]
                  [--save_rate SAVE_RATE] [--tr_data TR_DATA] [--epochs EPOCHS]
                  [--tr_img_list TR_IMG_LIST] [--tr_label_list TR_LABEL_LIST]
-                 [--do_test | --no-do_test] [--te_data TE_DATA]
-                 [--te_img_list TE_IMG_LIST] [--te_label_list TE_LABEL_LIST]
+                 [--fix_class_imbalance FIX_CLASS_IMBALANCE]
+                 [--weight_const WEIGHT_CONST] [--do_test | --no-do_test]
+                 [--te_data TE_DATA] [--te_img_list TE_IMG_LIST]
+                 [--te_label_list TE_LABEL_LIST] [--do_off DO_OFF]
                  [--do_val | --no-do_val] [--val_data VAL_DATA]
                  [--val_img_list VAL_IMG_LIST]
                  [--val_label_list VAL_LABEL_LIST] [--do_prod | --no-do_prod]
                  [--prod_data PROD_DATA] [--prod_img_list PROD_IMG_LIST]
+                 [--target_list TARGET_LIST] [--hyp_list HYP_LIST]
 
 NN Implentation for Layout Analysis
 
@@ -71,8 +79,7 @@ Data Related Parameters:
   --merge_regions MERGE_REGIONS [MERGE_REGIONS ...]
                         Merge regions on PAGE file into a single one. Format
                         --merge_regions r1:r2,r3 r4:r5, then r2 and r3 will be
-                        merged into r1 and r5 into r4 (default: {'$par':
-                        ['$pac']})
+                        merged into r1 and r5 into r4 (default: {})
   --approx_alg {optimal,trace}
                         Algorith to approximate baseline to N segments.
                         optimal: [Perez & Vidal, 1994] algorithm. trace: Use
@@ -82,6 +89,8 @@ Data Related Parameters:
   --max_vertex MAX_VERTEX
                         Maximun number of vertex used to approximate the
                         baselined when use 'optimal' algorithm (default: 10)
+  --save_prob_mat SAVE_PROB_MAT
+                        Save Network Prob Matrix at Inference (default: False)
 
 Data Loader Parameters:
   --batch_size BATCH_SIZE
@@ -93,13 +102,31 @@ Data Loader Parameters:
   --flip_img            Randomly flip images during training (default: False)
   --no-flip_img         Do not randomly flip images during training (default:
                         False)
+  --elastic_def ELASTIC_DEF
+                        Use elastic deformation during training (default:
+                        True)
+  --e_alpha E_ALPHA     alpha value for elastic deformations (default: 0.045)
+  --e_stdv E_STDV       std dev value for elastic deformations (default: 4)
+  --affine_trans AFFINE_TRANS
+                        Use affine transformations during training (default:
+                        True)
+  --t_stdv T_STDV       std deviation of normal dist. used in translate
+                        (default: 0.02)
+  --r_kappa R_KAPPA     concentration of von mises dist. used in rotate
+                        (default: 30)
+  --sc_stdv SC_STDV     std deviation of log-normal dist. used in scale
+                        (default: 0.12)
+  --sh_kappa SH_KAPPA   concentration of von mises dist. used in shear
+                        (default: 20)
+  --trans_prob TRANS_PROB
+                        probabiliti to perform a transformation (default: 0.5)
 
 Neural Networks Parameters:
   --input_channels INPUT_CHANNELS
                         Number of channels of input data (default: 3)
-  --output_channels OUTPUT_CHANNELS
-                        Number of channels of labels. If =1 then only lines
-                        will be extracted. (default: 2)
+  --out_mode {L,R,LR}   Type of output: L: Only Text Lines will be extracted
+                        R: Only Regions will be extracted LR: Lines and
+                        Regions will be extracted (default: LR)
   --cnn_ngf CNN_NGF     Number of filters of CNNs (default: 64)
   --use_gan             USE GAN to compute G loss (default: True)
   --no-use_gan          do not use GAN to compute G loss (default: True)
@@ -109,6 +136,8 @@ Neural Networks Parameters:
                         Lambda weith to copensate GAN vs G loss (default: 100)
   --g_loss {L1,MSE,smoothL1}
                         Loss function for G NN (default: L1)
+  --net_out_type {C,R}  Compute the problem as a classification or Regresion:
+                        C: Classification R: Regresion (default: C)
 
 Optimizer Parameters:
   --adam_lr ADAM_LR     Initial Lerning rate for ADAM opt (default: 0.001)
@@ -137,6 +166,11 @@ Training Parameters:
                         List to all label ready to be used by NN train, if not
                         provide it will be generated from original data.
                         (default: )
+  --fix_class_imbalance FIX_CLASS_IMBALANCE
+                        use weights at loss function to handle class
+                        imbalance. (default: True)
+  --weight_const WEIGHT_CONST
+                        weight constant to fix class imbalance (default: 1.02)
 
 Test Parameters:
   --do_test             Run test stage (default: False)
@@ -152,6 +186,7 @@ Test Parameters:
                         List to all label ready to be used by NN train, if not
                         provide it will be generated from original data.
                         (default: )
+  --do_off DO_OFF       Turn DropOut Off during inference (default: True)
 
 Validation Parameters:
   --do_val              Run Validation stage (default: False)
@@ -178,4 +213,9 @@ Production Parameters:
                         List to all images ready to be used by NN train, if
                         not provide it will be generated from original data.
                         (default: )
+
+Evaluation Parameters:
+  --target_list TARGET_LIST
+                        List of ground-truth PAGE-XML files (default: )
+  --hyp_list HYP_LIST   List of hypotesis PAGE-XMLfiles (default: )
 ```

@@ -11,17 +11,13 @@ import shutil
 import numpy as np
 import cv2
 import errno
-#import gc
 import subprocess
 import tempfile
 from collections import OrderedDict
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../')
-try:
-    from utils.optparse import Arguments as arguments
-    from page_xml.xmlPAGE import pageData
-    from evalTools import metrics as ev
-except:
-    pass
+from utils.optparse import Arguments as arguments
+from page_xml.xmlPAGE import pageData
+from evalTools import metrics as ev
 
 #import matplotlib.pyplot as plt
 
@@ -131,9 +127,9 @@ def compute_metrics(hyp,target,opts,logger=None):
         logger.info("freq weighted IU: {}".format(summary['f_iu']))
         logger.info("Per_class Pixel accuracy: {}".format(per_class_m.sum(axis=0)/num_samples))
         mm=per_class_m.sum(axis=0)/num_samples
-        print("BG:{}".format(mm[0]))
-        for n,c in opts.regions_colors.items():
-            print("{}:{}".format(n,mm[c]))
+        #print("BG:{}".format(mm[0]))
+        #for n,c in opts.regions_colors.items():
+        #    print("{}:{}".format(n,mm[c]))
     #--- return averages only 
     return summary
 

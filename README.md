@@ -70,11 +70,13 @@ python P2PaLA.py --config config.txt --tr_data ./data/train --te_data ./data/tes
 tensorboard --logdir ./work/runs
 ```
 4. xml-PAGE files must be at "./work/results/test/"
-> We recomend [Transkribus](https://transkribus.eu/Transkribus/) or [nw-page-editor](https://github.com/mauvilsa/nw-page-editor) 
+> We recommend [Transkribus](https://transkribus.eu/Transkribus/) or [nw-page-editor](https://github.com/mauvilsa/nw-page-editor) 
 > to visualize and edit PAGE-xml files.
 5. For detail about arguments and config file, see [docs](docs) or `python P2PaLa.py -h`. 
 6. For more detailed example see [egs](egs):
+    * Bozen dataset [see](egs/Bozen)
     * cBAD complex competition dataset [see](egs/cBAD_complex)
+    * OHG dataset [see](egs/OHG)
 
 
 License
@@ -89,8 +91,8 @@ Code is inspired by [pix2pix](https://github.com/phillipi/pix2pix) and [pytorch-
 To-do
 =====
 - [x] Save best model under criteria [best train L1, best val L1, ...]
-- [ ] stop trainning after X epochs without improvement
-- [x] Providen and example of use
+- [ ] stop training after X epochs without improvement
+- [x] Provide an example of use
 - [ ] Provide Docker 
 - [ ] Include [BaselinePage](https://github.com/PRHLT/BaseLinePage) to detect baselines.
 - [ ] Test on Mac/OS.
