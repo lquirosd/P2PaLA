@@ -22,13 +22,17 @@ Requirements
 ===========
 
 - Linux (OSX may work, but untested.).
-- [Python](https://www.python.org/) (3.0 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
+- [Python](https://www.python.org/) (2.7 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
 - [Python future](https://pypi.python.org/pypi/future) `pip install future`
 - [Numpy](http://www.numpy.org/) (installed by default using conda)
-- [PyTorch](http://pytorch.org) (0.2.0\_4). `conda install pytorch torchvision -c pytorch`
+- [PyTorch](http://pytorch.org) (0.3.0). `conda install pytorch torchvision -c pytorch`
 - [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). `conda install -c menpo opencv`
 - NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal modification, but untested).
 - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
+
+```
+For a full list of dependencies see [conda env file](conda_env.yml)_
+```
 
 Usage
 =====
