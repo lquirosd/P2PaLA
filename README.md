@@ -14,6 +14,9 @@ If you find this toolkit useful in your research, please cite:
   howpublished = {\url{https://github.com/lquirosd/P2PaLA}},
 }
 ```
+Or check this paper for details [Arxiv](https://arxiv.org/abs/1806.08852).
+
+
 
 Requirements
 ===========
