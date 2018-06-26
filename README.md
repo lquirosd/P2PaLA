@@ -22,7 +22,7 @@ Requirements
 ===========
 
 - Linux (OSX may work, but untested.).
-- [Python](https://www.python.org/) (2.7 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended, Python 3.0 untested)
+- [Python](https://www.python.org/) (3.0 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
 - [Python future](https://pypi.python.org/pypi/future) `pip install future`
 - [Numpy](http://www.numpy.org/) (installed by default using conda)
 - [PyTorch](http://pytorch.org) (0.2.0\_4). `conda install pytorch torchvision -c pytorch`
