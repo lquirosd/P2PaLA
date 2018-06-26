@@ -30,9 +30,9 @@ Requirements
 - NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal modification, but untested).
 - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
 
-```
-For a full list of dependencies see [conda env file](conda_env.yml)_
-```
+
+> For a full list of dependencies see [conda env file](conda_env.yml)
+
 
 Usage
 =====
