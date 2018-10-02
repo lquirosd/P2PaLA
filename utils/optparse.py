@@ -141,6 +141,8 @@ class Arguments(object):
                             help="concentration of von mises dist. used in shear")
         loader.add_argument('--trans_prob', default=0.5, type=float,
                             help="probabiliti to perform a transformation")
+        loader.add_argument('--do_prior', default=False, type=bool,
+                            help="Compute prior distribution over classes")
         #----------------------------------------------------------------------
         #----- Define NN parameters
         #----------------------------------------------------------------------

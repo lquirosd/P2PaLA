@@ -182,6 +182,7 @@ def main():
     #--- Init model variable
     nnG = None
     bestState = None
+    prior=None
     torch.set_default_tensor_type("torch.FloatTensor")
     #--- configure TensorBoard display
     opts.img_size = np.array(opts.img_size, dtype=np.int)
@@ -239,6 +240,11 @@ def main():
                                         label_lst=opts.tr_label_list,
                                         transform=transform,
                                         opts=opts)
+        if opts.do_prior:
+            #--- Save prior matrix along with model
+            fh = open(os.path.join(opts.checkpoints, 'prior.pth'),'w')
+            pickle.dump(train_data.prior,fh,-1)
+            fh.close()
         train_dataloader = DataLoader(train_data,
                                       batch_size=opts.batch_size,
                                       shuffle=opts.shuffle_data,
@@ -481,6 +487,7 @@ def main():
                     v_y = nnG(v_img)
                     if opts.out_mode == 'LR' and opts.net_out_type == 'C':
                         v_l,v_r = torch.split(v_label,1,dim=1)
+                        lossG.weight = None
                         v_loss = lossG(v_y[0],torch.squeeze(v_l)) + lossG(v_y[1],torch.squeeze(v_r))
                     else:
                         v_loss = lossG(v_y, v_label)
@@ -580,6 +587,20 @@ def main():
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
 
+            #--- get prior data
+            if opts.do_prior and prior==None:
+                fh = open(os.path.join(opts.checkpoints, 'prior.pth'),'r')
+                prior = pickle.load(fh)
+                fh.close()
+                if opts.out_mode == 'LR':
+                    priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
+                    #print(priorL.shape)
+                    priorL = priorL.cuda()
+                    priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
+                    priorR = priorR.cuda()
+                elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                    prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
+                    prior = prior.cuda()
             for v_batch,v_sample in enumerate(val_dataloader):
                 #--- set vars to volatile, since no backward used
                 v_img = Variable(v_sample['image'], volatile=True)
@@ -596,10 +617,15 @@ def main():
                         fh.close
                 if opts.net_out_type == 'C':
                     if opts.out_mode == 'LR':
+                        if opts.do_prior:
+                            v_y_gen[0].data = v_y_gen[0].data+priorL.data
+                            v_y_gen[1].data = v_y_gen[1].data+priorR.data
                         _, v_l = torch.max(v_y_gen[0],dim=1,keepdim=True)
                         _, v_r = torch.max(v_y_gen[1],dim=1,keepdim=True)
                         v_y_gen = torch.cat([v_l, v_r],1)
                     elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                        if opts.do_prior:
+                            v_y_gen.data = v_y_gen.data + prior.data
                         _, v_y_gen = torch.max(v_y_gen,dim=1,keepdim=True)
                     else:
                         pass
@@ -705,6 +731,20 @@ def main():
                                       shuffle=opts.shuffle_data,
                                       num_workers=opts.num_workers,
                                       pin_memory=opts.pin_memory)
+        #--- get prior data
+        if opts.do_prior and prior==None:
+            fh = open(os.path.join(opts.checkpoints, 'prior.pth'),'r')
+            prior = pickle.load(fh)
+            fh.close()
+            if opts.out_mode == 'LR':
+                priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
+                #print(priorL.shape)
+                priorL = priorL.cuda()
+                priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
+                priorR = priorR.cuda()
+            elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
+                prior = prior.cuda()
         for te_batch,sample in enumerate(test_dataloader):
             te_x = Variable(sample['image'], volatile=True)
             te_label = Variable(sample['label'], volatile=True)
@@ -714,16 +754,30 @@ def main():
                 te_label = te_label.cuda()
             te_y_gen = nnG(te_x)
             if opts.save_prob_mat:
-                for idx,data in enumerate(te_y_gen.data):
-                    fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
-                    pickle.dump(data.cpu().float().numpy(),fh,-1)
-                    fh.close
+                if opts.out_mode == 'LR':
+                    for idx,data in enumerate(te_y_gen[0].data):
+                        fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
+                        pickle.dump(tuple((data.cpu().float().numpy(),
+                            te_y_gen[1].data.cpu().float().numpy()
+                            )),fh,-1)
+                        fh.close()
+                else:
+                    for idx,data in enumerate(te_y_gen.data):
+                        fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
+                        pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
+                    #print(te_y_gen[0].data.shape)
+                    if opts.do_prior:
+                        te_y_gen[0].data = te_y_gen[0].data+priorL.data
+                        te_y_gen[1].data = te_y_gen[1].data+priorR.data
                     _, te_l = torch.max(te_y_gen[0],dim=1,keepdim=True)
                     _, te_r = torch.max(te_y_gen[1],dim=1,keepdim=True)
                     te_y_gen = torch.cat([te_l, te_r],1)
                 elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                    if opts.do_prior:
+                        te_y_gen.data = te_y_gen.data + prior.data
                     _, te_y_gen = torch.max(te_y_gen,dim=1,keepdim=True)
                 else:
                     pass
@@ -832,6 +886,21 @@ def main():
                                       shuffle=opts.shuffle_data,
                                       num_workers=opts.num_workers,
                                       pin_memory=opts.pin_memory)
+
+        #--- get prior data
+        if opts.do_prior and prior==None:
+            fh = open(os.path.join(opts.checkpoints, 'prior.pth'),'r')
+            prior = pickle.load(fh)
+            fh.close()
+            if opts.out_mode == 'LR':
+                priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
+                #print(priorL.shape)
+                priorL = priorL.cuda()
+                priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
+                priorR = priorR.cuda()
+            elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
+                prior = prior.cuda()
         for pr_batch,sample in enumerate(prod_dataloader):
             pr_x = Variable(sample['image'], volatile=True)
             pr_ids = sample['id']
@@ -845,10 +914,15 @@ def main():
                     fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
+                    if opts.do_prior:
+                        pr_y_gen[0].data = pr_y_gen[0].data+priorL.data
+                        pr_y_gen[1].data = pr_y_gen[1].data+priorR.data
                     _, pr_l = torch.max(pr_y_gen[0],dim=1,keepdim=True)
                     _, pr_r = torch.max(pr_y_gen[1],dim=1,keepdim=True)
                     pr_y_gen = torch.cat([pr_l, pr_r],1)
                 elif opts.out_mode == 'L' or opts.out_mode == 'R':
+                    if opts.do_prior:
+                        pr_y_gen.data = pr_y_gen.data + prior.data
                     _, pr_y_gen = torch.max(pr_y_gen,dim=1,keepdim=True)
                 else:
                     pass

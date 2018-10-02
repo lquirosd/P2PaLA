@@ -44,34 +44,50 @@ class htrDataset(Dataset):
             #--- one count is added per class in order to avoid zero prob.
             #--- weights will be restrict to the interval [1/log(1+c), 1/log(c)]
             #--- for the default c=1.02 => [50.49,1.42]
+            temp_index = np.indices(opts.img_size)
             if opts.out_mode == 'L':
                 self.w = np.ones(2,dtype=np.float)
+                self.prior = np.zeros((2,opts.img_size[0],opts.img_size[1]),dtype=np.float)
                 for l in self.label_paths:
                     with open(l,'r') as fh:
                         label = pickle.load(fh)
                     self.w += np.bincount(label.flatten(),minlength=2)
+                    self.prior[tuple((label,temp_index[0],temp_index[1]))] += 1
                 self.w = self.w/((len(self.label_paths) * opts.img_size.sum()) + 2)
                 self.w = 1/np.log(opts.weight_const + self.w)
+                self.prior += np.finfo(float).eps
+                self.prior = self.prior / self.prior.sum(axis=0)[None,:,:]
             if opts.out_mode == 'LR':
                 self.w = [np.ones(2,dtype=np.float), 
                           np.ones(len(opts.regions) + 1,dtype=np.float)]
+                self.prior = [np.zeros((2,opts.img_size[0],opts.img_size[1]),dtype=np.float), 
+                              np.zeros((len(opts.regions) + 1, opts.img_size[0],opts.img_size[1]),dtype=np.float)]
                 for l in self.label_paths:
                     with open(l,'r') as fh:
                         label = pickle.load(fh)
                     self.w[0] += np.bincount(label[0].flatten(),minlength=2)
+                    self.prior[0][tuple((label[0],temp_index[0],temp_index[1]))] += 1
                     self.w[1] += np.bincount(label[1].flatten(),minlength=len(opts.regions)+1)
+                    self.prior[1][tuple((label[1],temp_index[0],temp_index[1]))] += 1
                 self.w[0] = self.w[0]/((len(self.label_paths) * opts.img_size.sum()) + 2)
                 self.w[1] = self.w[1]/((len(self.label_paths) * opts.img_size.sum()) + len(opts.regions) + 1)
                 self.w[0] = 1/np.log(opts.weight_const + self.w[0])
                 self.w[1] = 1/np.log(opts.weight_const + self.w[1])
+                self.prior[0] += np.finfo(float).eps
+                self.prior[0] = self.prior[0] / self.prior[0].sum(axis=0)[None,:,:]
+                self.prior[1] += np.finfo(float).eps
+                self.prior[1] = self.prior[1] / self.prior[1].sum(axis=0)[None,:,:]
             if opts.out_mode == 'R':
                 self.w = np.ones(len(opts.regions) + 1,dtype=np.float)
+                self.prior = np.zeros((len(opts.regions) + 1, opts.img_size[0],opts.img_size[1]),dtype=np.float)
                 for l in self.label_paths:
                     with open(l,'r') as fh:
                         label = pickle.load(fh)
                     self.w += np.bincount(label.flatten(),minlength=len(opts.regions)+1)
+                    self.prior[tuple((label,temp_index[0],temp_index[1]))] += 1
                 self.w = self.w/((len(self.label_paths) * opts.img_size.sum()) + len(opts.regions) + 1)
                 self.w = 1/np.log(opts.weight_const + self.w)
+                self.prior = self.prior / self.prior.sum(axis=0)[None,:,:]
 
         self.img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
         self.opts = opts

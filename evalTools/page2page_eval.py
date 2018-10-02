@@ -125,11 +125,12 @@ def compute_metrics(hyp,target,opts,logger=None):
         logger.info("Mean accuracy:   {}".format(summary['m_acc']))
         logger.info("Mean IU:          {}".format(summary['m_iu']))
         logger.info("freq weighted IU: {}".format(summary['f_iu']))
-        logger.info("Per_class Pixel accuracy: {}".format(per_class_m.sum(axis=0)/num_samples))
+        #for c,v in opts.regions_colors.items():
+        #    logger.info("Per_class Pixel accuracy [{}]: {}".format(c,per_class_m[v].sum(axis=0)/num_samples))
         mm=per_class_m.sum(axis=0)/num_samples
-        #print("BG:{}".format(mm[0]))
-        #for n,c in opts.regions_colors.items():
-        #    print("{}:{}".format(n,mm[c]))
+        logger.info("Per_class Pixel accuracy [BG]: {}".format(mm[0]))
+        for n,c in opts.regions_colors.items():
+            logger.info("Per_class Pixel accuracy [{}]: {}".format(n,mm[c]))
     #--- return averages only 
     return summary
 
