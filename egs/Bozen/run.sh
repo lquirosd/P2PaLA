@@ -3,18 +3,18 @@
 mkdir -p data/{train,test}/page
 
 #--- download original data
-wget https://zenodo.org/record/218236/files/PublicData.tgz -O data/PublicData.tgz
+wget https://zenodo.org/record/1297399/files/Train-And-Val-ICFHR-2016.tgz -O data/PublicData.tgz
 #--- decompress files
 tar -xf data/PublicData.tgz -C data/
 
 
 mv data/PublicData/Training/Images/* data/train/.
-mv data/PublicData/Training/page/*.xml data/train/page/.
+mv data/PublicData/Training/page/page/*.xml data/train/page/.
 mv data/PublicData/Validation/Images/* data/test/.
-mv data/PublicData/Validation/page/*.xml data/test/page/.
+mv data/PublicData/Validation/page/page/*.xml data/test/page/.
 
-rm data/PublicData.tgz
-rm -rf data/PublicData
+#rm data/PublicData.tgz
+#rm -rf data/PublicData
 
 #--- run train
 python ../../P2PaLA.py --config config_BL_only.txt --log_comment "_Bozen_BL_only"
