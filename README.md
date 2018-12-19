@@ -14,7 +14,7 @@ If you find this toolkit useful in your research, please cite:
   howpublished = {\url{https://github.com/lquirosd/P2PaLA}},
 }
 ```
-Or check this paper for details [Arxiv](https://arxiv.org/abs/1806.08852).
+Check this paper for more details [Arxiv](https://arxiv.org/abs/1806.08852).
 
 
 
@@ -27,7 +27,7 @@ Requirements
 - [Numpy](http://www.numpy.org/) (installed by default using conda)
 - [PyTorch](http://pytorch.org) (0.3.0). `conda install pytorch torchvision -c pytorch`
 - [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). `conda install -c menpo opencv`
-- NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN may work with minimal modification, but untested).
+- NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN works, but is not recomended for taraining).
 - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
 
 
@@ -95,11 +95,3 @@ Acknowledgments
 ===============
 Code is inspired by [pix2pix](https://github.com/phillipi/pix2pix) and [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 
-To-do
-=====
-- [x] Save best model under criteria [best train L1, best val L1, ...]
-- [ ] stop training after X epochs without improvement
-- [x] Provide an example of use
-- [ ] Provide Docker 
-- [ ] Include [BaselinePage](https://github.com/PRHLT/BaseLinePage) to detect baselines.
-- [ ] Test on Mac/OS.
