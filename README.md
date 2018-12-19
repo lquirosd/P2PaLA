@@ -72,6 +72,8 @@ data
 ```bash
 python P2PaLA.py --config config.txt --tr_data ./data/train --te_data ./data/test --log_comment "_foo"
 ```
+> Pre-trained models available [here](egs/pre_trained)
+
 3. Use TensorBoard to visualize train status:
 ```bash
 tensorboard --logdir ./work/runs
