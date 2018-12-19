@@ -1,8 +1,8 @@
-name: PyTorch3
+name: p2p
 channels:
   - pytorch
-  - anaconda
   - conda-forge
+  - menpo
   - defaults
 dependencies:
   - cffi=1.11.4=py27h9745a5d_0
@@ -22,7 +22,7 @@ dependencies:
   - pycparser=2.18=py27hefa08c5_1
   - python=2.7.13=0
   - readline=6.2=2
-  - scipy=1.0.0=py27hf5f0f52_0
+  - scipy=1.0.0
   - setuptools=36.4.0=py27_1
   - six=1.11.0=py27h5f960f1_1
   - sqlite=3.13.0=0
@@ -30,7 +30,7 @@ dependencies:
   - wheel=0.29.0=py27_0
   - xz=5.2.3=h55aa19d_2
   - zlib=1.2.11=0
-  - blas=1.1=openblas
+  - blas=1.1
   - bzip2=1.0.6=1
   - ca-certificates=2018.1.18=0
   - cairo=1.14.6=5
@@ -48,7 +48,7 @@ dependencies:
   - hdf5=1.10.1=1
   - icu=58.2=0
   - jasper=1.900.1=4
-  - libiconv=1.15=0
+  - libiconv=1.15
   - libpng=1.6.28=2
   - libtiff=4.0.7=1
   - libwebp=0.5.2=7
@@ -78,6 +78,4 @@ dependencies:
     - pytz==2017.3
     - pyyaml==3.12
     - subprocess32==3.2.7
-    - tensorboardx==1.1
     - torch==0.3.0.post4
-prefix: /home/lquirosd/anaconda3/envs/PyTorch3
