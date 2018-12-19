@@ -178,7 +178,8 @@ def main():
     #--- Init torch random 
     #--- This two are suposed to be merged in the future, for now keep boot
     torch.manual_seed(opts.seed)
-    torch.cuda.manual_seed_all(opts.seed)
+    if opts.use_gpu:
+        torch.cuda.manual_seed_all(opts.seed)
     #--- Init model variable
     nnG = None
     bestState = None
@@ -293,8 +294,14 @@ def main():
                                 betas=(opts.adam_beta1,opts.adam_beta2))
         if opts.cont_train:
             logger.info('Resumming training from model {}'.format(opts.prev_model))
-            checkpoint = torch.load(opts.prev_model)
-            nnG.load_state_dict(checkpoint['nnG_state'])
+            if opts.use_gpu:
+                checkpoint = torch.load(opts.prev_model)
+                nnG.load_state_dict(checkpoint['nnG_state'])
+                nnG = nnG.cuda()
+            else:
+                checkpoint = torch.load(opts.prev_model, map_location=lambda storage, loc: storage)
+                nnG.load_state_dict(checkpoint['nnG_state'])
+
             optimizerG.load_state_dict(checkpoint['nnG_optimizer_state'])
             if not opts.g_loss == checkpoint['g_loss']:
                 logger.warning(("Previous Model loss function differs from "
@@ -303,7 +310,6 @@ def main():
                                                                 checkpoint['g_loss']))
                 logger.warning('Using {} loss funtion to resume training...'.format(opts.g_loss))
             if opts.use_gpu:
-                nnG = nnG.cuda()
                 lossG = lossG.cuda()
         else:
             #--- send to GPU before init weigths
@@ -361,15 +367,17 @@ def main():
         best_epoch = 0
         if opts.net_out_type == 'C' and opts.fix_class_imbalance:
             if opts.out_mode == 'LR':
-                l_w = torch.from_numpy(train_data.w[0])
-                r_w = torch.from_numpy(train_data.w[1])
+                l_w = torch.from_numpy(train_data.w[0]).type(torch.FloatTensor)
+                r_w = torch.from_numpy(train_data.w[1]).type(torch.FloatTensor)
                 if opts.use_gpu:
-                    l_w = l_w.type(torch.FloatTensor).cuda()
-                    r_w = r_w.type(torch.FloatTensor).cuda()
+                    l_w = l_w.cuda()
+                    r_w = r_w.cuda()
                 class_weight = [l_w,r_w]
                 logger.debug('class weight: {}'.format(train_data.w))
             else:
-                lossG.weight = torch.from_numpy(train_data.w).type(torch.FloatTensor).cuda()
+                lossG.weight = torch.from_numpy(train_data.w).type(torch.FloatTensor)
+                if opts.use_gpu:
+                    lossG.weight = lossG.weight.cuda()
                 logger.debug('class weight: {}'.format(train_data.w))
 
         for epoch in range(opts.epochs):
@@ -416,24 +424,37 @@ def main():
                 if opts.use_gan:
                     #nnD.apply(models.zero_bias)
                     optimizerD.zero_grad()
+                    if opts.use_gpu:
+                        y_gt = y_gt.type(torch.cuda.FloatTensor)
+                    else:
+                        y_gt = y_gt.type(torch.FloatTensor)
+
                     if opts.net_out_type == 'C':
                         if opts.out_mode == 'LR':
-                            real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                            real_D = torch.cat([x,y_gt],1)
                             #real_D = torch.cat([x,y_gt_D],1)
                             y_dis_real = nnD(real_D)
                             _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
                             _, arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
                             y_fake = torch.cat([arg_l,arg_r],1)
-                            fake_D = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1).detach()
+                            if opts.use_gpu:
+                                y_fake = y_fake.type(torch.cuda.FloatTensor)
+                            else:
+                                y_fake = y_fake.type(torch.FloatTensor)
+                            fake_D = torch.cat([x,y_fake],1).detach()
                         elif opts.out_mode == 'L' or opts.out_mode == 'R':
-                            real_D = torch.cat([x,torch.unsqueeze(y_gt.type(torch.cuda.FloatTensor),1)],1)
+                            real_D = torch.cat([x,torch.unsqueeze(y_gt,1)],1)
                             y_dis_real = nnD(real_D)
                             _, arg_y = torch.max(y_gen,dim=1)
-                            fake_D = torch.cat([x,torch.unsqueeze(arg_y.type(torch.cuda.FloatTensor),1)],1).detach()
+                            if opts.use_gpu:
+                                arg_y = arg_y.type(torch.cuda.FloatTensor)
+                            else:
+                                arg_y = arg_y.type(torch.FloatTensor)
+                            fake_D = torch.cat([x,torch.unsqueeze(arg_y,1)],1).detach()
                         else:
                             pass
                     else:
-                        real_D = torch.cat([x,y_gt.type(torch.cuda.FloatTensor)],1)
+                        real_D = torch.cat([x,y_gt],1)
                         y_dis_real = nnD(real_D)
                         fake_D = torch.cat([x,y_gen],1).detach()
                     y_dis_fake = nnD(fake_D) 
@@ -456,10 +477,18 @@ def main():
                             _, arg_l = torch.max(y_gen[0],dim=1,keepdim=True)
                             _,arg_r = torch.max(y_gen[1],dim=1,keepdim=True)
                             y_fake = torch.cat([arg_l,arg_r],1)
-                            g_fake = torch.cat([x,y_fake.type(torch.cuda.FloatTensor)],1)
+                            if opts.use_gpu:
+                                y_fake = y_fake.type(torch.cuda.FloatTensor)
+                            else:
+                                y_fake = y_fake.type(torch.FloatTensor)
+                            g_fake = torch.cat([x,y_fake],1)
                         elif opts.out_mode == 'L' or opts.out_mode == 'R':
                             _, arg_y = torch.max(y_gen,dim=1,keepdim=True)
-                            g_fake = torch.cat([x,arg_y.type(torch.cuda.FloatTensor)],1)
+                            if opts.use_gpu:
+                                arg_y = arg_y.type(torch.cuda.FloatTensor)
+                            else:
+                                arg_y = arg_y.type(torch.FloatTensor)
+                            g_fake = torch.cat([x,arg_y],1)
                         else:
                             pass
                     else:
@@ -579,10 +608,13 @@ def main():
                     nnG.apply(models.off_dropout)
             else:
                 #--- load best model for inference
-                checkpoint = torch.load(best_model)
-                nnG.load_state_dict(checkpoint['nnG_state'])
                 if opts.use_gpu:
+                    checkpoint = torch.load(best_model)
+                    nnG.load_state_dict(checkpoint['nnG_state'])
                     nnG = nnG.cuda()
+                else:
+                    checkpoint = torch.load(best_model, map_location=lambda storage, loc: storage)
+                    nnG.load_state_dict(checkpoint['nnG_state'])
                 nnG.eval()
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
@@ -594,13 +626,14 @@ def main():
                 fh.close()
                 if opts.out_mode == 'LR':
                     priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
-                    #print(priorL.shape)
-                    priorL = priorL.cuda()
                     priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
-                    priorR = priorR.cuda()
+                    if opts.use_gpu:
+                        priorL = priorL.cuda()
+                        priorR = priorR.cuda()
                 elif opts.out_mode == 'L' or opts.out_mode == 'R':
                     prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
-                    prior = prior.cuda()
+                    if opts.use_gpu:
+                        prior = prior.cuda()
             for v_batch,v_sample in enumerate(val_dataloader):
                 #--- set vars to volatile, since no backward used
                 v_img = Variable(v_sample['image'], volatile=True)
@@ -613,7 +646,10 @@ def main():
                 if opts.save_prob_mat:
                     for idx,data in enumerate(v_y_gen.data):
                         fh = open(res_path + '/prob_mat/' + v_ids[idx] + '.pickle', 'w')
-                        pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        if opts.use_gpu:
+                            pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        else:
+                            pickle.dump(data.float().numpy(),fh,-1)
                         fh.close
                 if opts.net_out_type == 'C':
                     if opts.out_mode == 'LR':
@@ -642,12 +678,21 @@ def main():
                     #img = tensor2img(data)
                     #cv2.imwrite(os.path.join(res_path,
                     #                         'mask', v_ids[idx] +'_out.png'),img)
-                    va_data.gen_page(v_ids[idx],
-                                   data.cpu().float().numpy(),
-                                   opts.regions,
-                                   approx_alg=opts.approx_alg,
-                                   num_segments=opts.num_segments,
-                                   out_folder=res_path)
+                    if opts.use_gpu:
+                        va_data.gen_page(v_ids[idx],
+                                    data.cpu().float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
+                    else:
+                        va_data.gen_page(v_ids[idx],
+                                    data.float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
+
             #--- metrics are taked over the generated PAGE-XML files instead
             #--- of teh current data and label becouse image size may be different
             #--- than the processed image, then during evaluation final image
@@ -692,10 +737,13 @@ def main():
                                    net_type=opts.net_out_type,
                                    out_mode=opts.out_mode)
             logger.info('Resumming from model {}'.format(opts.prev_model))
-            checkpoint = torch.load(opts.prev_model)
-            nnG.load_state_dict(checkpoint['nnG_state'])
             if opts.use_gpu:
+                checkpoint = torch.load(opts.prev_model)
+                nnG.load_state_dict(checkpoint['nnG_state'])
                 nnG = nnG.cuda()
+            else:
+                checkpoint = torch.load(opts.prev_model, map_location=lambda storage, loc: storage)
+                nnG.load_state_dict(checkpoint['nnG_state'])
             nnG.eval()
             if opts.do_off:
                 nnG.apply(models.off_dropout)
@@ -738,13 +786,14 @@ def main():
             fh.close()
             if opts.out_mode == 'LR':
                 priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
-                #print(priorL.shape)
-                priorL = priorL.cuda()
                 priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
-                priorR = priorR.cuda()
+                if opts.use_gpu:
+                    priorL = priorL.cuda()
+                    priorR = priorR.cuda()
             elif opts.out_mode == 'L' or opts.out_mode == 'R':
                 prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
-                prior = prior.cuda()
+                if opts.use_gpu:
+                    prior = prior.cuda()
         for te_batch,sample in enumerate(test_dataloader):
             te_x = Variable(sample['image'], volatile=True)
             te_label = Variable(sample['label'], volatile=True)
@@ -757,14 +806,23 @@ def main():
                 if opts.out_mode == 'LR':
                     for idx,data in enumerate(te_y_gen[0].data):
                         fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
-                        pickle.dump(tuple((data.cpu().float().numpy(),
-                            te_y_gen[1].data.cpu().float().numpy()
-                            )),fh,-1)
+                        if opts.use_gpu:
+                            pickle.dump(tuple((data.cpu().float().numpy(),
+                                te_y_gen[1].data.cpu().float().numpy()
+                                )),fh,-1)
+                        else:
+                            pickle.dump(tuple((data.float().numpy(),
+                                te_y_gen[1].data.float().numpy()
+                                )),fh,-1)
+
                         fh.close()
                 else:
                     for idx,data in enumerate(te_y_gen.data):
                         fh = open(res_path + '/prob_mat/' + te_ids[idx] + '.pickle', 'w')
-                        pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        if opts.use_gpu:
+                            pickle.dump(data.cpu().float().numpy(),fh,-1)
+                        else:
+                            pickle.dump(data.float().numpy(),fh,-1)
                         fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
@@ -788,12 +846,20 @@ def main():
 
             for idx,data in enumerate(te_y_gen.data):
                 #--- TODO: update this function to proccess C-dim tensors
-                te_data.gen_page(te_ids[idx],
-                                   data.cpu().float().numpy(),
-                                   opts.regions,
-                                   approx_alg=opts.approx_alg,
-                                   num_segments=opts.num_segments,
-                                   out_folder=res_path)
+                if opts.use_gpu:
+                    te_data.gen_page(te_ids[idx],
+                                    data.cpu().float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
+                else:
+                    te_data.gen_page(te_ids[idx],
+                                    data.float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
         test_end_time = time.time()
         logger.info('Test stage done. total time taken: {}'.format(test_end_time-test_start_time))
         logger.info('Average time per page: {}'.format((test_end_time-test_start_time)/test_data.__len__()))
@@ -838,10 +904,13 @@ def main():
                                    net_type=opts.net_out_type,
                                    out_mode=opts.out_mode)
             logger.info('Resumming from model {}'.format(opts.prev_model))
-            checkpoint = torch.load(opts.prev_model)
-            nnG.load_state_dict(checkpoint['nnG_state'])
             if opts.use_gpu:
+                checkpoint = torch.load(opts.prev_model)
+                nnG.load_state_dict(checkpoint['nnG_state'])
                 nnG = nnG.cuda()
+            else:
+                checkpoint = torch.load(opts.prev_model, map_location=lambda storage, loc: storage)
+                nnG.load_state_dict(checkpoint['nnG_state'])
             nnG.eval()
             if opts.do_off:
                 nnG.apply(models.off_dropout)
@@ -894,13 +963,14 @@ def main():
             fh.close()
             if opts.out_mode == 'LR':
                 priorL = Variable(torch.from_numpy(np.log(prior[0])).type(torch.FloatTensor))
-                #print(priorL.shape)
-                priorL = priorL.cuda()
                 priorR = Variable(torch.from_numpy(np.log(prior[1])).type(torch.FloatTensor))
-                priorR = priorR.cuda()
+                if opts.use_gpu:
+                    priorL = priorL.cuda()
+                    priorR = priorR.cuda()
             elif opts.out_mode == 'L' or opts.out_mode == 'R':
                 prior = Variable(torch.from_numpy(np.log(prior)).type(torch.FloatTensor))
-                prior = prior.cuda()
+                if opts.use_gpu:
+                    prior = prior.cuda()
         for pr_batch,sample in enumerate(prod_dataloader):
             pr_x = Variable(sample['image'], volatile=True)
             pr_ids = sample['id']
@@ -910,7 +980,10 @@ def main():
             if opts.save_prob_mat:
                 for idx,data in enumerate(pr_y_gen.data):
                     fh = open(res_path + '/prob_mat/' + pr_ids[idx] + '.pickle', 'w')
-                    pickle.dump(data.cpu().float().numpy(),fh,-1)
+                    if opts.use_gpu:
+                        pickle.dump(data.cpu().float().numpy(),fh,-1)
+                    else:
+                        pickle.dump(data.float().numpy(),fh,-1)
                     fh.close
             if opts.net_out_type == 'C':
                 if opts.out_mode == 'LR':
@@ -932,12 +1005,20 @@ def main():
                 pass
             for idx,data in enumerate(pr_y_gen.data):
                 #--- TODO: update this function to proccess C-dim tensors at GPU
-                pr_data.gen_page(pr_ids[idx],
-                                   data.cpu().float().numpy(),
-                                   opts.regions,
-                                   approx_alg=opts.approx_alg,
-                                   num_segments=opts.num_segments,
-                                   out_folder=res_path)
+                if opts.use_gpu:
+                    pr_data.gen_page(pr_ids[idx],
+                                    data.cpu().float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
+                else:
+                    pr_data.gen_page(pr_ids[idx],
+                                    data.float().numpy(),
+                                    opts.regions,
+                                    approx_alg=opts.approx_alg,
+                                    num_segments=opts.num_segments,
+                                    out_folder=res_path)
         prod_end_time = time.time()
         logger.info('Production stage done. total time taken: {}'.format(prod_end_time-prod_start_time))
         logger.info('Average time per page: {}'.format((prod_end_time-prod_start_time)/prod_data.__len__()))

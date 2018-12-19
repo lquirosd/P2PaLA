@@ -458,6 +458,10 @@ class Arguments(object):
         #--- Preprocess some input variables
         #--- enable/disable
         self.opts.use_gpu = self.opts.gpu != -1
+        #--- make sure to don't use pinned memory when CPU only, DataLoader class 
+        #--- will copy tensors into GPU by default if pinned memory is True.
+        if not self.opts.use_gpu:
+            self.opts.pin_memory = False
         #--- set logging data
         self.opts.log_level_id = getattr(logging, self.opts.log_level.upper())
         self.opts.log_file = self.opts.work_dir +'/' + self.opts.exp_name + '.log'
