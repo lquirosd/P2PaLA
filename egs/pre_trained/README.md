@@ -11,6 +11,14 @@ python P2PaLA.py --config <path_to_config_file> --prev_model <path_to_model> --p
 
 > Note: This command will force to use GPU, if you want to use CPU just add ```--gpu -1``` 
 
+4. Example:
+Make sure you have an `input` folder in your main directory, also that you have downloaded the config and the pretrained model.
+```bash
+python P2PaLA.py --config config_ALAR_min_model_17_12_18_inference.txt --prev_model ALAR_min_model_17_12_18.pth --prod_data ./input
+```
+If you want to use CPU just add ```--gpu -1```
+
+
 ## Available models
 
 ### Baselines only
