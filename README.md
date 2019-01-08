@@ -1,6 +1,8 @@
 P2PaLA
 ======
 
+[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+
 Page to [PAGE](http://www.primaresearch.org/tools/PAGELibraries) Layout Analysis (P2PaLA) is a toolkit for Document Layout Analysis based on Neural Networks.
 
 If you find this toolkit useful in your research, please cite:
