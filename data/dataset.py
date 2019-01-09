@@ -55,7 +55,7 @@ class htrDataset(Dataset):
                     (2, opts.img_size[0], opts.img_size[1]), dtype=np.float
                 )
                 for l in self.label_paths:
-                    with open(l, "r") as fh:
+                    with open(l, "rb") as fh:
                         label = pickle.load(fh)
                     self.w += np.bincount(label.flatten(), minlength=2)
                     self.prior[tuple((label, temp_index[0], temp_index[1]))] += 1
@@ -76,7 +76,7 @@ class htrDataset(Dataset):
                     ),
                 ]
                 for l in self.label_paths:
-                    with open(l, "r") as fh:
+                    with open(l, "rb") as fh:
                         label = pickle.load(fh)
                     self.w[0] += np.bincount(label[0].flatten(), minlength=2)
                     self.prior[0][tuple((label[0], temp_index[0], temp_index[1]))] += 1
@@ -105,7 +105,7 @@ class htrDataset(Dataset):
                     dtype=np.float,
                 )
                 for l in self.label_paths:
-                    with open(l, "r") as fh:
+                    with open(l, "rb") as fh:
                         label = pickle.load(fh)
                     self.w += np.bincount(
                         label.flatten(), minlength=len(opts.regions) + 1
@@ -137,7 +137,7 @@ class htrDataset(Dataset):
         # --- TODO: Move norm comp and transforms to GPU
         image = (((2 / 255) * image.transpose((2, 0, 1))) - 1).astype(np.float32)
         if self.build_label:
-            fh = open(self.label_paths[idx], "r")
+            fh = open(self.label_paths[idx], "rb")
             label = pickle.load(fh)
             # --- TODO: change to opts.net+out_type == C
             if self.opts.do_class:

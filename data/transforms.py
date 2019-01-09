@@ -55,7 +55,8 @@ class toTensor(object):
     """Convert dataset sample (ndarray) to tensor"""
 
     def __call__(self, sample):
-        for k, v in sample.iteritems():
+        #for k, v in sample.iteritems():
+        for k, v in list(sample.items()):
             if type(v) is np.ndarray:
                 # --- by default float arrays will be converted to float tensors
                 # --- and int arrays to long tensor.
@@ -76,7 +77,8 @@ class randomFlip(object):
             # --- if not error raises: RuntimeError: some of the strides of a
             # ---    given numpy array are negative. This is currently not
             # ---    supported, but will be added in future releases.
-            for k, v in sample.iteritems():
+            #for k, v in sample.iteritems():
+            for k, v in list(sample.items()):
                 if type(v) is np.ndarray:
                     sample[k] = np.flip(v, self.axis).copy()
             return sample

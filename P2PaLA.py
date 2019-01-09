@@ -26,7 +26,10 @@ from nn_models import models
 from data import dataset
 from data import transforms as transforms
 from data import imgprocess as dp
-import cPickle as pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 from evalTools import page2page_eval
 
 loss_dic = {
@@ -349,7 +352,7 @@ def main():
         )
         if opts.do_prior:
             # --- Save prior matrix along with model
-            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "w")
+            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "wb")
             pickle.dump(train_data.prior, fh, -1)
             fh.close()
         train_dataloader = DataLoader(
@@ -771,7 +774,7 @@ def main():
 
             # --- get prior data
             if opts.do_prior and prior == None:
-                fh = open(os.path.join(opts.checkpoints, "prior.pth"), "r")
+                fh = open(os.path.join(opts.checkpoints, "prior.pth"), "rb")
                 prior = pickle.load(fh)
                 fh.close()
                 if opts.out_mode == "LR":
@@ -801,7 +804,7 @@ def main():
                 v_y_gen = nnG(v_img)
                 if opts.save_prob_mat:
                     for idx, data in enumerate(v_y_gen.data):
-                        fh = open(res_path + "/prob_mat/" + v_ids[idx] + ".pickle", "w")
+                        fh = open(res_path + "/prob_mat/" + v_ids[idx] + ".pickle", "wb")
                         if opts.use_gpu:
                             pickle.dump(data.cpu().float().numpy(), fh, -1)
                         else:
@@ -950,7 +953,7 @@ def main():
         )
         # --- get prior data
         if opts.do_prior and prior == None:
-            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "r")
+            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "rb")
             prior = pickle.load(fh)
             fh.close()
             if opts.out_mode == "LR":
@@ -981,7 +984,7 @@ def main():
                 if opts.out_mode == "LR":
                     for idx, data in enumerate(te_y_gen[0].data):
                         fh = open(
-                            res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "w"
+                            res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "wb"
                         )
                         if opts.use_gpu:
                             pickle.dump(
@@ -1010,7 +1013,7 @@ def main():
                 else:
                     for idx, data in enumerate(te_y_gen.data):
                         fh = open(
-                            res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "w"
+                            res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "wb"
                         )
                         if opts.use_gpu:
                             pickle.dump(data.cpu().float().numpy(), fh, -1)
@@ -1169,7 +1172,7 @@ def main():
 
         # --- get prior data
         if opts.do_prior and prior == None:
-            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "r")
+            fh = open(os.path.join(opts.checkpoints, "prior.pth"), "rb")
             prior = pickle.load(fh)
             fh.close()
             if opts.out_mode == "LR":
@@ -1196,7 +1199,7 @@ def main():
             pr_y_gen = nnG(pr_x)
             if opts.save_prob_mat:
                 for idx, data in enumerate(pr_y_gen.data):
-                    fh = open(res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "w")
+                    fh = open(res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "wb")
                     if opts.use_gpu:
                         pickle.dump(data.cpu().float().numpy(), fh, -1)
                     else:

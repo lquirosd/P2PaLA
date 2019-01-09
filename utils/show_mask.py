@@ -17,7 +17,7 @@ def main():
     """
     Quick script to show mask images stored on pickle files
     """
-    with open(sys.argv[1], "r") as fh:
+    with open(sys.argv[1], "rb") as fh:
         data = pickle.load(fh)
     if data.ndim == 2:
         plt.imshow(data)

@@ -198,7 +198,8 @@ class pageData:
 
     def write_transcriptions(self, out_dir):
         """write out one txt file per text line"""
-        for line, text in self.get_transcription().iteritems():
+        #for line, text in self.get_transcription().iteritems():
+        for line, text in list(self.get_transcription().items()):
             fh = open(
                 os.path.join(out_dir, "".join([self.name, "_", line, ".txt"])), "w"
             )

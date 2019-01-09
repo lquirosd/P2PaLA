@@ -10,7 +10,7 @@ import os
 import multiprocessing
 import logging
 
-import art
+from . import art
 from evalTools.metrics import levenshtein
 
 

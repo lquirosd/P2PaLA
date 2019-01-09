@@ -75,7 +75,7 @@ def compute_metrics(hyp, target, opts, logger=None):
 
         logger.info("-" * 10 + "BASELINE EVALUATION RESULTS" + "-" * 10)
         logger.debug(bl_results)
-        bl_results = bl_results.split("\n")
+        bl_results = bl_results.decode().split("\n")
         for i in range(num_samples):
             res = bl_results[17 + i].split(",")
             metrics["p_bl"][i] = float(res[0])
@@ -98,7 +98,7 @@ def compute_metrics(hyp, target, opts, logger=None):
             }
         )
         per_class_m = np.zeros(
-            (num_samples, np.unique(opts.regions_colors.values()).size + 1),
+            (num_samples, np.unique(list(opts.regions_colors.values())).size + 1),
             dtype=np.float,
         )
         logger.info("-" * 10 + "REGIONS EVALUATION RESULTS" + "-" * 10)

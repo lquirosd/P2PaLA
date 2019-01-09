@@ -1,6 +1,7 @@
 P2PaLA
 ======
 
+[![Python Version](https://img.shields.io/badge/python-2.7%2C%203.6-blue.svg)](https://www.python.org/)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 Page to [PAGE](http://www.primaresearch.org/tools/PAGELibraries) Layout Analysis (P2PaLA) is a toolkit for Document Layout Analysis based on Neural Networks.
@@ -24,16 +25,16 @@ Requirements
 ===========
 
 - Linux (OSX may work, but untested.).
-- [Python](https://www.python.org/) (2.7 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
-- [Python future](https://pypi.python.org/pypi/future) `pip install future`
-- [Numpy](http://www.numpy.org/) (installed by default using conda)
-- [PyTorch](http://pytorch.org) (0.3.0). `conda install pytorch torchvision -c pytorch`
-- [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). `conda install -c menpo opencv`
-- NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN works, but is not recomended for taraining).
+- [Python](https://www.python.org/) (2.7, 3.6 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
+<!--- - [Python future](https://pypi.python.org/pypi/future) `pip install future` -->
+- [Numpy](http://www.numpy.org/) <!--- (installed by default using conda) -->
+- [PyTorch](http://pytorch.org) (0.3.0). <!--- `conda install pytorch torchvision -c pytorch` -->
+- [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). <!--- `conda install -c menpo opencv` -->
+- NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN works, but is not recomended for training).
 - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
 
 
-> For a full list of dependencies see [conda env file](conda_env.yml)
+> To install python dependencies use [requirements file](requirements.txt) `pip install -r requirements.txt`
 
 
 Usage
@@ -43,6 +44,7 @@ Usage
 mkdir -p data/{train,val,test,prod}/page;
 tree data;
 ```
+
 ```
 data
 ├── prod
@@ -70,19 +72,24 @@ data
     ├── val_0.jpg
     └── val_1.jpg
 ```
+
 2. Run the tool.
+
 ```bash
 python P2PaLA.py --config config.txt --tr_data ./data/train --te_data ./data/test --log_comment "_foo"
 ```
-> Pre-trained models available [here](egs/pre_trained)
+> :exclamation: Pre-trained models available [here](egs/pre_trained)
 
 3. Use TensorBoard to visualize train status:
+
 ```bash
 tensorboard --logdir ./work/runs
 ```
 4. xml-PAGE files must be at "./work/results/test/"
+
 > We recommend [Transkribus](https://transkribus.eu/Transkribus/) or [nw-page-editor](https://github.com/mauvilsa/nw-page-editor) 
 > to visualize and edit PAGE-xml files.
+
 5. For detail about arguments and config file, see [docs](docs) or `python P2PaLa.py -h`. 
 6. For more detailed example see [egs](egs):
     * Bozen dataset [see](egs/Bozen)
@@ -98,4 +105,5 @@ See [LICENSE](LICENSE) to see the full text.
 Acknowledgments
 ===============
 Code is inspired by [pix2pix](https://github.com/phillipi/pix2pix) and [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+
 

@@ -55,8 +55,8 @@ class htrDataProcess:
         else:
             if len(self.classes.keys()) > 1:
                 self.th_span = (
-                    self.classes[self.classes.keys()[1]]
-                    - self.classes[self.classes.keys()[0]]
+                    self.classes[list(self.classes.keys())[1]]
+                    - self.classes[list(self.classes.keys())[0]]
                 ) / 2
             else:
                 self.th_span = 64
@@ -426,7 +426,7 @@ def _processData(params):
             label = lin_mask
 
         new_label_path = os.path.join(out_folder, img_id + ".pickle")
-        fh = open(new_label_path, "w")
+        fh = open(new_label_path, "wb")
         pickle.dump(label, fh, -1)
         fh.close()
         return (new_img_path, new_label_path, xml_path)
