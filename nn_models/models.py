@@ -42,7 +42,9 @@ class buildUnet(nn.Module):
     doc goes here :)
     """
 
-    def __init__(self, input_nc, output_nc, ngf=64, net_type="R", out_mode=None):
+    def __init__(
+        self, input_nc, output_nc, ngf=64, net_type="R", out_mode=None
+    ):
         super(buildUnet, self).__init__()
         # self.gpu_ids = gpu_ids
 
@@ -60,11 +62,17 @@ class buildUnet(nn.Module):
         model = uSkipBlock(
             ngf * 8, ngf * 8, ngf * 8, inner_slave=model, i_id="a_2", useDO=True
         )
-        model = uSkipBlock(ngf * 8, ngf * 8, ngf * 8, inner_slave=model, i_id="a_3")
+        model = uSkipBlock(
+            ngf * 8, ngf * 8, ngf * 8, inner_slave=model, i_id="a_3"
+        )
         # model = uSkipBlock(ngf*8, ngf*8, ngf*8, inner_slave=model, i_id='a_4')
 
-        model = uSkipBlock(ngf * 4, ngf * 8, ngf * 4, inner_slave=model, i_id="a_5")
-        model = uSkipBlock(ngf * 2, ngf * 4, ngf * 2, inner_slave=model, i_id="a_6")
+        model = uSkipBlock(
+            ngf * 4, ngf * 8, ngf * 4, inner_slave=model, i_id="a_5"
+        )
+        model = uSkipBlock(
+            ngf * 2, ngf * 4, ngf * 2, inner_slave=model, i_id="a_6"
+        )
         model = uSkipBlock(ngf, ngf * 2, ngf, inner_slave=model, i_id="a_7")
         # --- define output layer
         model = uSkipBlock(
@@ -119,20 +127,40 @@ class uSkipBlock(nn.Module):
         if self.type == "R":
             # --- Handle out block
             e_conv = nn.Conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=False
+                input_nc,
+                inner_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_conv = nn.ConvTranspose2d(
-                2 * inner_nc, output_nc, kernel_size=4, stride=2, padding=1, bias=False
+                2 * inner_nc,
+                output_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_non_lin = nn.ReLU(True)
             model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Tanh()]
         elif self.type == "C":
             # --- handle out block, classification encoding
             e_conv = nn.Conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=False
+                input_nc,
+                inner_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_conv = nn.ConvTranspose2d(
-                2 * inner_nc, output_nc, kernel_size=4, stride=2, padding=1, bias=False
+                2 * inner_nc,
+                output_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_non_lin = nn.ReLU(True)
             # model = [e_conv] + [inner_slave] + [d_non_lin, d_conv, nn.Softmax2d()]
@@ -141,28 +169,63 @@ class uSkipBlock(nn.Module):
         elif self.type == "center":
             # --- Handle center case
             e_conv = nn.Conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=False
+                input_nc,
+                inner_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             e_non_lin = nn.LeakyReLU(0.2, True)
             d_conv = nn.ConvTranspose2d(
-                inner_nc, output_nc, kernel_size=4, stride=2, padding=1, bias=False
+                inner_nc,
+                output_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
-            model = [e_non_lin, e_conv, d_non_lin, d_conv, d_norm, nn.Dropout(0.5)]
+            model = [
+                e_non_lin,
+                e_conv,
+                d_non_lin,
+                d_conv,
+                d_norm,
+                nn.Dropout(0.5),
+            ]
         elif self.type == "inner":
             # --- Handle internal case
             e_conv = nn.Conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=False
+                input_nc,
+                inner_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             e_non_lin = nn.LeakyReLU(0.2, True)
             e_norm = nn.BatchNorm2d(inner_nc)
             d_conv = nn.ConvTranspose2d(
-                2 * inner_nc, output_nc, kernel_size=4, stride=2, padding=1, bias=False
+                2 * inner_nc,
+                output_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
             )
             d_non_lin = nn.ReLU(True)
             d_norm = nn.BatchNorm2d(output_nc)
-            model = [e_non_lin, e_conv, e_norm, inner_slave, d_non_lin, d_conv, d_norm]
+            model = [
+                e_non_lin,
+                e_conv,
+                e_norm,
+                inner_slave,
+                d_non_lin,
+                d_conv,
+                d_norm,
+            ]
             if useDO:
                 model = model + [nn.Dropout(0.5)]
 
@@ -267,7 +330,9 @@ class buildDNet(nn.Module):
             ),
             nn.BatchNorm2d(ngf * nf_mult),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(ngf * nf_mult, 1, kernel_size=4, stride=1, padding=1, bias=False),
+            nn.Conv2d(
+                ngf * nf_mult, 1, kernel_size=4, stride=1, padding=1, bias=False
+            ),
             nn.Sigmoid(),
         ]
         self.model = nn.Sequential(*model)
@@ -290,12 +355,12 @@ def weights_init_normal(m):
     classname = m.__class__.__name__
     # print(classname)
     if classname.find("Conv") != -1:
-        init.uniform(m.weight.data, 0.0, 0.02)
+        nn.init.uniform_(m.weight.data, 0.0, 0.02)
         # init.constant(m.bias.data, 0.0)
     elif classname.find("Linear") != -1:
-        init.uniform(m.weight.data, 0.0, 0.02)
+        nn.init.uniform_(m.weight.data, 0.0, 0.02)
     elif classname.find("BatchNorm2d") != -1:
-        init.uniform(m.weight.data, 1.0, 0.02)
+        nn.init.uniform_(m.weight.data, 1.0, 0.02)
         # init.constant(m.bias.data, 0.0)
 
 

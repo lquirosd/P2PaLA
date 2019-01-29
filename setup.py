@@ -41,7 +41,7 @@ def git_is_dirty():
 
 
 MAJOR = 0
-MINOR = 1
+MINOR = 2
 MICRO = 0
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MICRO)
 
@@ -58,7 +58,9 @@ class create_version_file(setuptools.Command):
         version_path = os.path.join(cwd, "version.py")
         with io.open(version_path, "w", encoding="utf-8") as f:
             full_version = "{}+{}{}".format(
-                VERSION, git_commit(short=True), "-dirty" if git_is_dirty() else ""
+                VERSION,
+                git_commit(short=True),
+                "-dirty" if git_is_dirty() else "",
             )
             f.write("__full_version__ = '{}'\n".format(full_version))
             f.write("__version__ = '{}'\n".format(VERSION))
@@ -73,16 +75,13 @@ class build_py(setuptools.command.build_py.build_py):
 
 
 def get_scripts():
-    return [
-        os.path.join(cwd, script)
-        for script in (
-            "P2PaLA.py",
-        )
-    ]
+    return [os.path.join(cwd, script) for script in ("P2PaLA.py",)]
 
 
 def get_requirements():
-    requirements_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
+    requirements_file = os.path.join(
+        os.path.dirname(__file__), "requirements.txt"
+    )
     with io.open(requirements_file, "r", encoding="utf-8") as f:
         return [line.strip() for line in f]
 

@@ -29,7 +29,9 @@ class htrDataProcess:
     """
     """
 
-    def __init__(self, data_pointer, out_folder, opts, build_labels=True, logger=None):
+    def __init__(
+        self, data_pointer, out_folder, opts, build_labels=True, logger=None
+    ):
         """ function to proces all data into a htr dataset"""
         self.logger = logging.getLogger(__name__) if logger == None else logger
         # --- file formats from opencv imread supported formats
@@ -75,7 +77,9 @@ class htrDataProcess:
             raise
 
         self.img_paths = [x.rstrip() for x in self.img_paths]
-        img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
+        img_ids = [
+            os.path.splitext(os.path.basename(x))[0] for x in self.img_paths
+        ]
         self.img_data = dict(zip(img_ids, self.img_paths))
 
     def set_label_list(self, list_file):
@@ -103,7 +107,9 @@ class htrDataProcess:
 
         for ext in self.formats:
             self.img_paths.extend(glob.glob(self.data_pointer + "/*." + ext))
-        img_ids = [os.path.splitext(os.path.basename(x))[0] for x in self.img_paths]
+        img_ids = [
+            os.path.splitext(os.path.basename(x))[0] for x in self.img_paths
+        ]
         self.img_data = dict(zip(img_ids, self.img_paths))
 
         processed_data = []
@@ -157,7 +163,9 @@ class htrDataProcess:
         processed_data = np.array(processed_data)
         np.savetxt(self.out_folder + "/img.lst", processed_data[:, 0], fmt="%s")
         if self.build_labels:
-            np.savetxt(self.out_folder + "/label.lst", processed_data[:, 1], fmt="%s")
+            np.savetxt(
+                self.out_folder + "/label.lst", processed_data[:, 1], fmt="%s"
+            )
             self.label_list = self.out_folder + "/label.lst"
             self.gt_xml_list = processed_data[:, 2]
             self.gt_xml_list.sort()
@@ -175,22 +183,28 @@ class htrDataProcess:
         """
         """
         self.approx_alg = self.approx_alg if approx_alg == None else approx_alg
-        self.num_segments = self.num_segments if num_segments == None else num_segments
+        self.num_segments = (
+            self.num_segments if num_segments == None else num_segments
+        )
         self.logger.debug("Gen PAGE for image: {}".format(img_id))
         # --- sym link to original image
         # --- TODO: check if orig image exist
         img_name = os.path.basename(self.img_data[img_id])
         symlink_force(
-            os.path.realpath(self.img_data[img_id]), os.path.join(out_folder, img_name)
+            os.path.realpath(self.img_data[img_id]),
+            os.path.join(out_folder, img_name),
         )
         o_img = cv2.imread(self.img_data[img_id])
         (o_rows, o_cols, _) = o_img.shape
         o_max = max(o_rows, o_cols)
         o_min = min(o_rows, o_cols)
-        cScale = np.array([o_cols / self.out_size[1], o_rows / self.out_size[0]])
+        cScale = np.array(
+            [o_cols / self.out_size[1], o_rows / self.out_size[0]]
+        )
 
         page = pageData(
-            os.path.join(out_folder, "page", img_id + ".xml"), logger=self.logger
+            os.path.join(out_folder, "page", img_id + ".xml"),
+            logger=self.logger,
         )
         self.hyp_xml_list.append(page.filepath)
         self.hyp_xml_list.sort()
@@ -302,7 +316,9 @@ class htrDataProcess:
                         lin_coords = ""
                         l_cnt = (l_cnt * cScale).astype("int32")
                         for l_x in l_cnt.reshape(-1, 2):
-                            lin_coords = lin_coords + " {},{}".format(l_x[0], l_x[1])
+                            lin_coords = lin_coords + " {},{}".format(
+                                l_x[0], l_x[1]
+                            )
                         (is_line, approx_lin) = self._get_baseline(o_img, l_cnt)
                         if is_line == False:
                             continue
@@ -341,7 +357,9 @@ class htrDataProcess:
         bRes = Oimg[minY:maxY, minX:maxX]
         bMsk = mask[minY:maxY, minX:maxX]
         bRes = cv2.cvtColor(bRes, cv2.COLOR_RGB2GRAY)
-        _, bImg = cv2.threshold(bRes, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, bImg = cv2.threshold(
+            bRes, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
         _, cols = bImg.shape
         # --- remove black halo around the image
         bImg[bMsk[:, :, 0] == 0] = 255
@@ -361,7 +379,9 @@ class htrDataProcess:
             # --- take only 100 points to build the baseline
             if points2D.shape[0] > self.max_vertex:
                 points2D = points2D[
-                    np.linspace(0, points2D.shape[0] - 1, self.max_vertex, dtype=np.int)
+                    np.linspace(
+                        0, points2D.shape[0] - 1, self.max_vertex, dtype=np.int
+                    )
                 ]
             (approxError, approxLin) = pa.poly_approx(
                 points2D, self.num_segments, pa.one_axis_delta
@@ -415,7 +435,9 @@ def _processData(params):
         gt_data.parse()
         # --- build lines mask
         if ext_mode != "R":
-            lin_mask = gt_data.build_baseline_mask(out_size, line_color, line_width)
+            lin_mask = gt_data.build_baseline_mask(
+                out_size, line_color, line_width
+            )
         # --- buid regions mask
         if ext_mode == "LR":
             reg_mask = gt_data.build_mask(out_size, "TextRegion", classes)

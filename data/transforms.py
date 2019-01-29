@@ -39,7 +39,9 @@ def build_transforms(opts, train=True):
         # --- add elastic deformation
         if opts.elastic_def:
             tr.append(
-                elastic(prob=opts.trans_prob, alpha=opts.e_alpha, stdv=opts.e_stdv)
+                elastic(
+                    prob=opts.trans_prob, alpha=opts.e_alpha, stdv=opts.e_stdv
+                )
             )
 
     # --- transform data(ndarrays) to tensor
@@ -55,7 +57,7 @@ class toTensor(object):
     """Convert dataset sample (ndarray) to tensor"""
 
     def __call__(self, sample):
-        #for k, v in sample.iteritems():
+        # for k, v in sample.iteritems():
         for k, v in list(sample.items()):
             if type(v) is np.ndarray:
                 # --- by default float arrays will be converted to float tensors
@@ -77,7 +79,7 @@ class randomFlip(object):
             # --- if not error raises: RuntimeError: some of the strides of a
             # ---    given numpy array are negative. This is currently not
             # ---    supported, but will be added in future releases.
-            #for k, v in sample.iteritems():
+            # for k, v in sample.iteritems():
             for k, v in list(sample.items()):
                 if type(v) is np.ndarray:
                     sample[k] = np.flip(v, self.axis).copy()
@@ -183,19 +185,27 @@ class elastic(object):
             # --- a intermediate value of stdv will suffice, from [Simard03] stdv=4 is a good option.
             dx = (
                 gaussian_filter(
-                    (torch.rand(shape) * 2 - 1), self.stdv, mode="constant", cval=0
+                    (torch.rand(shape) * 2 - 1),
+                    self.stdv,
+                    mode="constant",
+                    cval=0,
                 )
                 * dmin
                 * self.alpha
             )
             dy = (
                 gaussian_filter(
-                    (torch.rand(shape) * 2 - 1), self.stdv, mode="constant", cval=0
+                    (torch.rand(shape) * 2 - 1),
+                    self.stdv,
+                    mode="constant",
+                    cval=0,
                 )
                 * dmin
                 * self.alpha
             )
-            x, y = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing="ij")
+            x, y = np.meshgrid(
+                np.arange(shape[0]), np.arange(shape[1]), indexing="ij"
+            )
             indices = np.reshape(x + dx, (-1, 1)), np.reshape(y + dy, (-1, 1))
             if np.ndim(sample["image"]) > 2:
                 for t in sample["image"]:
@@ -221,7 +231,9 @@ class affine(object):
     [trnslation, rotation, shear, scale]
     """
 
-    def __init__(self, prob=0.5, t_stdv=0.02, r_kappa=30, sc_stdv=0.12, sh_kappa=20):
+    def __init__(
+        self, prob=0.5, t_stdv=0.02, r_kappa=30, sc_stdv=0.12, sh_kappa=20
+    ):
         self.prob = prob
         self.t_stdv = t_stdv
         self.r_kappa = r_kappa

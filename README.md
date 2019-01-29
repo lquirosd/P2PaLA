@@ -26,16 +26,19 @@ Requirements
 
 - Linux (OSX may work, but untested.).
 - [Python](https://www.python.org/) (2.7, 3.6 under [conda virtual environment](https://www.anaconda.com/download/#linux) is recomended)
-<!--- - [Python future](https://pypi.python.org/pypi/future) `pip install future` -->
 - [Numpy](http://www.numpy.org/) <!--- (installed by default using conda) -->
-- [PyTorch](http://pytorch.org) (0.3.0). <!--- `conda install pytorch torchvision -c pytorch` -->
-- [OpenCv](https://github.com/opencv/opencv/releases/tag/3.3.1) (3.1.0). <!--- `conda install -c menpo opencv` -->
+- [PyTorch](http://pytorch.org) (1.0). PyTorch 0.3.1 compatible on this [branch](https://github.com/lquirosd/P2PaLA/tree/PyTorch-v0.3.1)
+- [OpenCv](https://github.com/opencv/opencv/releases/tag/3.4.5) (3.4.5.20). <!--- `conda install -c menpo opencv` -->
 - NVIDIA GPU + CUDA CuDNN (CPU mode and CUDA without CuDNN works, but is not recomended for training).
 - [tensorboard-pytorch](https://github.com/lanpa/tensorboard-pytorch) (v0.9) [Optional]. `pip install tensorboardX` > A diferent conda env is recomended to keep tensorflow separated from PyTorch
 
+Install
+=======
+```bash
+python setup.py install
+```
 
-> To install python dependencies use [requirements file](requirements.txt) `pip install -r requirements.txt`
-
+> To install python dependencies alone, use [requirements file](requirements.txt) `pip install -r requirements.txt`
 
 Usage
 =====

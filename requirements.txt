@@ -1,10 +1,10 @@
-torch==0.3.1
-torchvision==0.2.0
+torch
+torchvision
 opencv-python==3.4.5.20
 future
 numpy
 scipy
 pyclipper
 #--- Optional, uncomment to install
-#tensorboardx==1.1
-#matplotlib
+tensorboardx
+matplotlib

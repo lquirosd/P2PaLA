@@ -98,7 +98,10 @@ def compute_metrics(hyp, target, opts, logger=None):
             }
         )
         per_class_m = np.zeros(
-            (num_samples, np.unique(list(opts.regions_colors.values())).size + 1),
+            (
+                num_samples,
+                np.unique(list(opts.regions_colors.values())).size + 1,
+            ),
             dtype=np.float,
         )
         logger.info("-" * 10 + "REGIONS EVALUATION RESULTS" + "-" * 10)
@@ -114,7 +117,9 @@ def compute_metrics(hyp, target, opts, logger=None):
             )
             hyp_data = pageData(h)
             hyp_data.parse()
-            hyp_mask = hyp_data.build_mask(img_size, "TextRegion", opts.regions_colors)
+            hyp_mask = hyp_data.build_mask(
+                img_size, "TextRegion", opts.regions_colors
+            )
 
             metrics["p_acc"][i] = ev.pixel_accuraccy(hyp_mask, target_mask)
             metrics["m_acc"][i] = ev.mean_accuraccy(hyp_mask, target_mask)
