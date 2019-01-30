@@ -38,8 +38,11 @@ class htrDataset(Dataset):
         self.logger = logger or logging.getLogger(__name__)
         self.transform = transform
         # --- save all paths into a single dic
-        self.img_paths = open(img_lst, "r").readlines()
-        self.img_paths = [x.rstrip() for x in self.img_paths]
+        if type(img_lst) is list:
+            self.img_paths = img_lst
+        else:
+            self.img_paths = open(img_lst, "r").readlines()
+            self.img_paths = [x.rstrip() for x in self.img_paths]
         self.build_label = False
         # --- Labels will be loaded only if label_lst exists
         if label_lst != None:
@@ -157,6 +160,10 @@ class htrDataset(Dataset):
         # ---Keep arrays on float32 format for GPU compatibility
         # --- Normalize to [-1,1] range
         # --- TODO: Move norm comp and transforms to GPU
+        if not self.build_label:
+            #--- resize image in-situ, so no need to save it to disk
+            image = cv2.resize(image,(self.opts.img_size[1],self.opts.img_size[0]), interpolation=cv2.INTER_CUBIC)
+
         image = (((2 / 255) * image.transpose((2, 0, 1))) - 1).astype(
             np.float32
         )

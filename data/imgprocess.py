@@ -112,6 +112,10 @@ class htrDataProcess:
         ]
         self.img_data = dict(zip(img_ids, self.img_paths))
 
+        if not self.build_labels:
+            self.img_list = self.img_paths
+            return
+
         processed_data = []
         # --- remove parallel execution since for some reason sub-process get freze
         # --- after the second call of the class.
