@@ -49,9 +49,7 @@ class pageData:
         """
         get all regions in PAGE which match region_name
         """
-        return (
-            self.root.findall("".join([".//", self.base, region_name])) or None
-        )
+        return self.root.findall("".join([".//", self.base, region_name])) or None
 
     def get_id(self, element):
         """
@@ -81,14 +79,10 @@ class pageData:
         Get Image size defined on XML file
         """
         img_width = int(
-            self.root.findall("".join(["./", self.base, "Page"]))[0].get(
-                "imageWidth"
-            )
+            self.root.findall("".join(["./", self.base, "Page"]))[0].get("imageWidth")
         )
         img_height = int(
-            self.root.findall("".join(["./", self.base, "Page"]))[0].get(
-                "imageHeight"
-            )
+            self.root.findall("".join(["./", self.base, "Page"]))[0].get("imageHeight")
         )
         return (img_width, img_height)
 
@@ -105,9 +99,7 @@ class pageData:
         returns a list of polygons for the element desired
         """
         polygons = []
-        for element in self.root.findall(
-            "".join([".//", self.base, element_name])
-        ):
+        for element in self.root.findall("".join([".//", self.base, element_name])):
             # --- get element type
             e_type = self.get_region_type(element)
             if e_type == None:
@@ -127,9 +119,7 @@ class pageData:
         size = self.get_size()[::-1]
         mask = np.zeros(out_size, np.uint8)
         scale_factor = out_size / size
-        for element in self.root.findall(
-            "".join([".//", self.base, element_name])
-        ):
+        for element in self.root.findall("".join([".//", self.base, element_name])):
             # --- get element type
             e_type = self.get_region_type(element)
             if e_type == None or e_type not in color_dic:
@@ -163,16 +153,12 @@ class pageData:
         # --- to np.int @ dataloader only if NNLLoss is going to be used.
         mask = np.zeros((out_size[0], out_size[1]), np.uint8)
         scale_factor = out_size / size
-        for element in self.root.findall(
-            "".join([".//", self.base, "Baseline"])
-        ):
+        for element in self.root.findall("".join([".//", self.base, "Baseline"])):
             # --- get element coords
             str_coords = element.attrib.get("points").split()
             coords = np.array([i.split(",") for i in str_coords]).astype(np.int)
             coords = (coords * np.flip(scale_factor, 0)).astype(np.int)
-            cv2.polylines(
-                mask, [coords.reshape(-1, 1, 2)], False, color, line_width
-            )
+            cv2.polylines(mask, [coords.reshape(-1, 1, 2)], False, color, line_width)
         return mask
 
     def get_text(self, element):
@@ -202,13 +188,9 @@ class pageData:
     def get_transcription(self):
         """Extracts text from each line on the XML file"""
         data = {}
-        for element in self.root.findall(
-            "".join([".//", self.base, "TextRegion"])
-        ):
+        for element in self.root.findall("".join([".//", self.base, "TextRegion"])):
             r_id = self.get_id(element)
-            for line in element.findall(
-                "".join([".//", self.base, "TextLine"])
-            ):
+            for line in element.findall("".join([".//", self.base, "TextLine"])):
                 l_id = self.get_id(line)
                 data["_".join([r_id, l_id])] = self.get_text(line)
 
@@ -219,8 +201,7 @@ class pageData:
         # for line, text in self.get_transcription().iteritems():
         for line, text in list(self.get_transcription().items()):
             fh = open(
-                os.path.join(out_dir, "".join([self.name, "_", line, ".txt"])),
-                "w",
+                os.path.join(out_dir, "".join([self.name, "_", line, ".txt"])), "w"
             )
             fh.write(text + "\n")
             fh.close()
@@ -276,12 +257,12 @@ class pageData:
         self.xml.attrib = self.XMLNS
         metadata = ET.SubElement(self.xml, "Metadata")
         ET.SubElement(metadata, "Creator").text = self.creator
-        ET.SubElement(
-            metadata, "Created"
-        ).text = datetime.datetime.today().strftime("%Y-%m-%dT%X")
-        ET.SubElement(
-            metadata, "LastChange"
-        ).text = datetime.datetime.today().strftime("%Y-%m-%dT%X")
+        ET.SubElement(metadata, "Created").text = datetime.datetime.today().strftime(
+            "%Y-%m-%dT%X"
+        )
+        ET.SubElement(metadata, "LastChange").text = datetime.datetime.today().strftime(
+            "%Y-%m-%dT%X"
+        )
         self.page = ET.SubElement(self.xml, "Page")
         self.page.attrib = {
             "imageFilename": name,

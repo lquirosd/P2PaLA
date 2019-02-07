@@ -58,9 +58,7 @@ class create_version_file(setuptools.Command):
         version_path = os.path.join(cwd, "version.py")
         with io.open(version_path, "w", encoding="utf-8") as f:
             full_version = "{}+{}{}".format(
-                VERSION,
-                git_commit(short=True),
-                "-dirty" if git_is_dirty() else "",
+                VERSION, git_commit(short=True), "-dirty" if git_is_dirty() else ""
             )
             f.write("__full_version__ = '{}'\n".format(full_version))
             f.write("__version__ = '{}'\n".format(VERSION))
@@ -79,9 +77,7 @@ def get_scripts():
 
 
 def get_requirements():
-    requirements_file = os.path.join(
-        os.path.dirname(__file__), "requirements.txt"
-    )
+    requirements_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
     with io.open(requirements_file, "r", encoding="utf-8") as f:
         return [line.strip() for line in f]
 

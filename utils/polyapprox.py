@@ -122,8 +122,7 @@ def norm_trace(sec_points, vert_m):
     n = 1
     for m in range(1, vert_m - 1):
         while not (
-            (trace_long[n - 1] <= m * seg_long)
-            and (m * seg_long <= trace_long[n])
+            (trace_long[n - 1] <= m * seg_long) and (m * seg_long <= trace_long[n])
         ):
             n += 1
         if trace_long[n - 1] == trace_long[n]:
@@ -133,8 +132,6 @@ def norm_trace(sec_points, vert_m):
                 trace_long[n] - trace_long[n - 1]
             )
 
-        output[m] = sec_points[n - 1] + (
-            (sec_points[n] - sec_points[n - 1]) * alpha
-        )
+        output[m] = sec_points[n - 1] + ((sec_points[n] - sec_points[n - 1]) * alpha)
     output[-1] = sec_points[-1]
     return output

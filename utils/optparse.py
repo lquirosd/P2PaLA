@@ -40,10 +40,7 @@ class Arguments(object):
         # ----------------------------------------------------------------------
         general = self.parser.add_argument_group("General Parameters")
         general.add_argument(
-            "--config",
-            default=None,
-            type=str,
-            help="Use this configuration file",
+            "--config", default=None, type=str, help="Use this configuration file"
         )
         general.add_argument(
             "--exp_name",
@@ -53,10 +50,7 @@ class Arguments(object):
                                        will be stored into a folder under this name""",
         )
         general.add_argument(
-            "--work_dir",
-            default="./work/",
-            type=str,
-            help="Where to place output data",
+            "--work_dir", default="./work/", type=str, help="Where to place output data"
         )
         # --- Removed, input data should be handled by {tr,val,te,prod}_data variables
         # general.add_argument('--data_path', default='./data/',
@@ -85,8 +79,7 @@ class Arguments(object):
             default=0,
             type=int,
             help=(
-                "GPU id. Use -1 to disable. "
-                "Only 1 GPU setup is available for now ;("
+                "GPU id. Use -1 to disable. " "Only 1 GPU setup is available for now ;("
             ),
         )
         general.add_argument(
@@ -154,6 +147,24 @@ class Arguments(object):
                                will be merged into r1 and r5 into r4""",
         )
         data.add_argument(
+            "--nontext_regions",
+            default=None,
+            nargs="+",
+            type=str,
+            help="""List of regions where no text lines are expected. 
+                               Format: --nontext_regions r1 r2 r3 ...""",
+        )
+        data.add_argument(
+            "--region_type",
+            default=None,
+            nargs="+",
+            type=str,
+            help="""Type of region on PAGE file.
+                               Format --region_type t1:r1,r3 t2:r5, then type t1
+                               will assigned to regions r1 and r3 and type t2 to
+                               r5 and so on...""",
+        )
+        data.add_argument(
             "--approx_alg",
             default="optimal",
             type=str,
@@ -186,10 +197,7 @@ class Arguments(object):
         # ----------------------------------------------------------------------
         loader = self.parser.add_argument_group("Data Loader Parameters")
         loader.add_argument(
-            "--batch_size",
-            default=6,
-            type=int,
-            help="Number of images per mini-batch",
+            "--batch_size", default=6, type=int, help="Number of images per mini-batch"
         )
         l_meg1 = loader.add_mutually_exclusive_group(required=False)
         l_meg1.add_argument(
@@ -334,10 +342,7 @@ class Arguments(object):
         )
         n_meg.set_defaults(use_gan=True)
         net.add_argument(
-            "--gan_layers",
-            default=3,
-            type=int,
-            help="Number of layers of GAN NN",
+            "--gan_layers", default=3, type=int, help="Number of layers of GAN NN"
         )
         net.add_argument(
             "--loss_lambda",
@@ -389,10 +394,7 @@ class Arguments(object):
         train = self.parser.add_argument_group("Training Parameters")
         tr_meg = train.add_mutually_exclusive_group(required=False)
         tr_meg.add_argument(
-            "--do_train",
-            dest="do_train",
-            action="store_true",
-            help="Run train stage",
+            "--do_train", dest="do_train", action="store_true", help="Run train stage"
         )
         tr_meg.add_argument(
             "--no-do_train",
@@ -464,10 +466,7 @@ class Arguments(object):
         test = self.parser.add_argument_group("Test Parameters")
         te_meg = test.add_mutually_exclusive_group(required=False)
         te_meg.add_argument(
-            "--do_test",
-            dest="do_test",
-            action="store_true",
-            help="Run test stage",
+            "--do_test", dest="do_test", action="store_true", help="Run test stage"
         )
         te_meg.add_argument(
             "--no-do_test",
@@ -515,10 +514,7 @@ class Arguments(object):
         validation = self.parser.add_argument_group("Validation Parameters")
         v_meg = validation.add_mutually_exclusive_group(required=False)
         v_meg.add_argument(
-            "--do_val",
-            dest="do_val",
-            action="store_true",
-            help="Run Validation stage",
+            "--do_val", dest="do_val", action="store_true", help="Run Validation stage"
         )
         v_meg.add_argument(
             "--no-do_val",
@@ -600,10 +596,7 @@ class Arguments(object):
             help="List of ground-truth PAGE-XML files",
         )
         evaluation.add_argument(
-            "--hyp_list",
-            default="",
-            type=str,
-            help="List of hypotesis PAGE-XMLfiles",
+            "--hyp_list", default="", type=str, help="List of hypotesis PAGE-XMLfiles"
         )
 
     def _convert_file_to_args(self, arg_line):
@@ -629,9 +622,7 @@ class Arguments(object):
                 if not (os.path.isdir(pointer + "/checkpoints")):
                     os.makedirs(pointer + "/checkpoints")
                     self.logger.debug(
-                        "Creating checkpoints dir: {}".format(
-                            pointer + "/checkpoints"
-                        )
+                        "Creating checkpoints dir: {}".format(pointer + "/checkpoints")
                     )
                 return pointer
             else:
@@ -644,16 +635,12 @@ class Arguments(object):
                 self.logger.debug("Creating output dir: {}".format(pointer))
                 os.makedirs(pointer + "/checkpoints")
                 self.logger.debug(
-                    "Creating checkpoints dir: {}".format(
-                        pointer + "/checkpoints"
-                    )
+                    "Creating checkpoints dir: {}".format(pointer + "/checkpoints")
                 )
                 return pointer
             except OSError as e:
                 raise argparse.ArgumentTypeError(
-                    "{} folder does not exist and cannot be created\n{}".format(
-                        e
-                    )
+                    "{} folder does not exist and cannot be created\n{}".format(e)
                 )
 
     def _check_in_dir(self, pointer):
@@ -723,6 +710,29 @@ class Arguments(object):
 
         return to_merge
 
+    def _build_region_types(self):
+        """ build a dic of regions and their respective type"""
+        if self.opts.region_type == None:
+            return None
+        reg_type = {}
+        msg = ""
+        for c in self.opts.region_type:
+            try:
+                parent, childs = c.split(":")
+                regs = childs.split(",")
+                for reg in regs:
+                    if reg in self.opts.regions:
+                        reg_type[reg] = parent
+                    else:
+                        msg = '\nCannot assign region "{0}" to any type. {0} not defined as region'.format(
+                            reg
+                        )
+            except:
+                raise argparse.ArgumentTypeError(
+                    "Malformed argument {}".formatt(c) + msg
+                )
+        return reg_type
+
     def _define_output_channels(self):
         if self.opts.net_out_type == "C":
             if self.opts.out_mode == "L":
@@ -732,9 +742,7 @@ class Arguments(object):
             elif self.opts.out_mode == "LR":
                 n_ch = 3 + len(self.opts.regions)
             else:
-                raise argparse.ArgumentTypeError(
-                    "Malformed argument --out_mode"
-                )
+                raise argparse.ArgumentTypeError("Malformed argument --out_mode")
             return n_ch
         if self.opts.net_out_type == "R":
             if self.opts.out_mode == "L" or self.opts.out_mode == "R":
@@ -742,9 +750,7 @@ class Arguments(object):
             elif self.opts.out_mode == "LR":
                 n_ch = 2
             else:
-                raise argparse.ArgumentTypeError(
-                    "Malformed argument --out_mode"
-                )
+                raise argparse.ArgumentTypeError("Malformed argument --out_mode")
             return n_ch
 
     def shortest_arg(self, arg):
@@ -776,16 +782,12 @@ class Arguments(object):
 
         # --- Parse config file if defined
         if self.opts.config != None:
-            self.logger.info(
-                "Reading configuration from {}".format(self.opts.config)
-            )
+            self.logger.info("Reading configuration from {}".format(self.opts.config))
             self.opts, unkwn_conf = self.parser.parse_known_args(
                 ["@" + self.opts.config], namespace=self.opts
             )
             if unkwn_conf:
-                msg = "unrecognized  arguments in config file: {}\n".format(
-                    unkwn_conf
-                )
+                msg = "unrecognized  arguments in config file: {}\n".format(unkwn_conf)
                 msg += "do you mean: {}\n".format(self.shortest_arg(unkwn_conf))
                 msg += "In the meanwile, solve this maze:\n"
                 msg += art.make_maze()
@@ -800,19 +802,16 @@ class Arguments(object):
             self.opts.pin_memory = False
         # --- set logging data
         self.opts.log_level_id = getattr(logging, self.opts.log_level.upper())
-        self.opts.log_file = (
-            self.opts.work_dir + "/" + self.opts.exp_name + ".log"
-        )
+        self.opts.log_file = self.opts.work_dir + "/" + self.opts.exp_name + ".log"
         # --- build classes
         self.opts.do_class = self.opts.net_out_type == "C"
         self.opts.regions_colors = self._build_class_regions()
         self.opts.merged_regions = self._build_merged_regions()
+        self.opts.region_types = self._build_region_types()
         # --- add merde regions to color dic, so parent and merged will share the same color
         for parent, childs in self.opts.merged_regions.items():
             for child in childs:
-                self.opts.regions_colors[child] = self.opts.regions_colors[
-                    parent
-                ]
+                self.opts.regions_colors[child] = self.opts.regions_colors[parent]
 
         # --- TODO: Move this create dir to check inputs function
         self._check_out_dir(self.opts.work_dir)

@@ -65,19 +65,14 @@ def save_checkpoint(state, is_best, opts, logger, epoch, criterion=""):
     # --- borrowed from: https://github.com/pytorch/examples/blob/master/imagenet/main.py#L139
     if is_best:
         out_file = os.path.join(
-            opts.checkpoints,
-            "".join(["best_under", criterion, "criterion.pth"]),
+            opts.checkpoints, "".join(["best_under", criterion, "criterion.pth"])
         )
         torch.save(state, out_file)
-        logger.info(
-            "Best model saved to {} at epoch {}".format(out_file, str(epoch))
-        )
+        logger.info("Best model saved to {} at epoch {}".format(out_file, str(epoch)))
     else:
         out_file = os.path.join(opts.checkpoints, "checkpoint.pth")
         torch.save(state, out_file)
-        logger.info(
-            "Checkpoint saved to {} at epoch {}".format(out_file, str(epoch))
-        )
+        logger.info("Checkpoint saved to {} at epoch {}".format(out_file, str(epoch)))
     return out_file
 
 
@@ -89,14 +84,10 @@ def check_inputs(opts, logger):
     # --- check if input files/folders exists
     if opts.do_train:
         if opts.tr_img_list == "":
-            if not (
-                os.path.isdir(opts.tr_data) and os.access(opts.tr_data, os.R_OK)
-            ):
+            if not (os.path.isdir(opts.tr_data) and os.access(opts.tr_data, os.R_OK)):
                 n_err = n_err + 1
                 logger.error(
-                    "Folder {} does not exists or is unreadable".format(
-                        opts.tr_data
-                    )
+                    "Folder {} does not exists or is unreadable".format(opts.tr_data)
                 )
         else:
             if not (
@@ -105,9 +96,7 @@ def check_inputs(opts, logger):
             ):
                 n_err = n_err + 1
                 logger.error(
-                    "File {} does not exists or is unreadable".format(
-                        opts.tr_img_list
-                    )
+                    "File {} does not exists or is unreadable".format(opts.tr_img_list)
                 )
             if not (
                 os.path.isfile(opts.tr_label_list)
@@ -121,14 +110,10 @@ def check_inputs(opts, logger):
                 )
     if opts.do_test:
         if opts.te_img_list == "":
-            if not (
-                os.path.isdir(opts.te_data) and os.access(opts.te_data, os.R_OK)
-            ):
+            if not (os.path.isdir(opts.te_data) and os.access(opts.te_data, os.R_OK)):
                 n_err = n_err + 1
                 logger.error(
-                    "Folder {} does not exists or is unreadable".format(
-                        opts.te_data
-                    )
+                    "Folder {} does not exists or is unreadable".format(opts.te_data)
                 )
         else:
             if not (
@@ -137,9 +122,7 @@ def check_inputs(opts, logger):
             ):
                 n_err = n_err + 1
                 logger.error(
-                    "File {} does not exists or is unreadable".format(
-                        opts.te_img_list
-                    )
+                    "File {} does not exists or is unreadable".format(opts.te_img_list)
                 )
             if not (
                 os.path.isfile(opts.te_label_list)
@@ -153,15 +136,10 @@ def check_inputs(opts, logger):
                 )
     if opts.do_val:
         if opts.val_img_list == "":
-            if not (
-                os.path.isdir(opts.val_data)
-                and os.access(opts.val_data, os.R_OK)
-            ):
+            if not (os.path.isdir(opts.val_data) and os.access(opts.val_data, os.R_OK)):
                 n_err = n_err + 1
                 logger.error(
-                    "Folder {} does not exists or is unreadable".format(
-                        opts.val_data
-                    )
+                    "Folder {} does not exists or is unreadable".format(opts.val_data)
                 )
         else:
             if not (
@@ -170,9 +148,7 @@ def check_inputs(opts, logger):
             ):
                 n_err = n_err + 1
                 logger.error(
-                    "File {} does not exists or is unreadable".format(
-                        opts.val_img_list
-                    )
+                    "File {} does not exists or is unreadable".format(opts.val_img_list)
                 )
             if not (
                 os.path.isfile(opts.val_label_list)
@@ -187,14 +163,11 @@ def check_inputs(opts, logger):
     if opts.do_prod:
         if opts.prod_img_list == "":
             if not (
-                os.path.isdir(opts.prod_data)
-                and os.access(opts.prod_data, os.R_OK)
+                os.path.isdir(opts.prod_data) and os.access(opts.prod_data, os.R_OK)
             ):
                 n_err = n_err + 1
                 logger.error(
-                    "Folder {} does not exists or is unreadable".format(
-                        opts.prod_data
-                    )
+                    "Folder {} does not exists or is unreadable".format(opts.prod_data)
                 )
         else:
             if not (
@@ -211,19 +184,14 @@ def check_inputs(opts, logger):
     if opts.cont_train:
         if opts.prev_model == None:
             n_err = n_err + 1
-            logger.error(
-                "--prev_model must be defined to perform continue training."
-            )
+            logger.error("--prev_model must be defined to perform continue training.")
         else:
             if not (
-                os.path.isfile(opts.prev_model)
-                and os.access(opts.prev_model, os.R_OK)
+                os.path.isfile(opts.prev_model) and os.access(opts.prev_model, os.R_OK)
             ):
                 n_err = n_err + 1
                 logger.error(
-                    "File {} does not exists or is unreadable".format(
-                        opts.prev_model
-                    )
+                    "File {} does not exists or is unreadable".format(opts.prev_model)
                 )
         if not opts.do_train:
             logger.warning(
@@ -343,9 +311,7 @@ def main():
                 )
 
                 writer = SummaryWriter(log_dir=log_dir)
-                logger.info(
-                    "TensorBoard log will be stored at {}".format(log_dir)
-                )
+                logger.info("TensorBoard log will be stored at {}".format(log_dir))
                 logger.info("run: tensorboard --logdir {}".format(run_dir))
             except:
                 logger.warning(
@@ -369,9 +335,7 @@ def main():
             opts.tr_label_list = tr_data.label_list
         else:
             logger.info(
-                "Reading data from pre-processed input {}".format(
-                    opts.tr_img_list
-                )
+                "Reading data from pre-processed input {}".format(opts.tr_img_list)
             )
             tr_data = dp.htrDataProcess(
                 opts.tr_data,
@@ -446,14 +410,10 @@ def main():
             lossG = loss_dic[opts.g_loss].to(device)
         # --- TODO: implement other initializadion methods
         optimizerG = optim.Adam(
-            nnG.parameters(),
-            lr=opts.adam_lr,
-            betas=(opts.adam_beta1, opts.adam_beta2),
+            nnG.parameters(), lr=opts.adam_lr, betas=(opts.adam_beta1, opts.adam_beta2)
         )
         if opts.cont_train:
-            logger.info(
-                "Resumming training from model {}".format(opts.prev_model)
-            )
+            logger.info("Resumming training from model {}".format(opts.prev_model))
             if opts.use_gpu:
                 checkpoint = torch.load(opts.prev_model)
                 nnG.load_state_dict(checkpoint["nnG_state"])
@@ -472,16 +432,12 @@ def main():
                     ).format(opts.g_loss, checkpoint["g_loss"])
                 )
                 logger.warning(
-                    "Using {} loss funtion to resume training...".format(
-                        opts.g_loss
-                    )
+                    "Using {} loss funtion to resume training...".format(opts.g_loss)
                 )
         else:
             nnG.apply(models.weights_init_normal)
         logger.debug("GEN Network:\n{}".format(nnG))
-        logger.debug(
-            "GEN Network, number of parameters: {}".format(nnG.num_params)
-        )
+        logger.debug("GEN Network, number of parameters: {}".format(nnG.num_params))
 
         if opts.use_gan:
             if opts.net_out_type == "C":
@@ -508,20 +464,14 @@ def main():
             if opts.cont_train:
                 if "nnD_state" in checkpoint:
                     nnD.load_state_dict(checkpoint["nnD_state"])
-                    optimizerD.load_state_dict(
-                        checkpoint["nnD_optimizer_state"]
-                    )
+                    optimizerD.load_state_dict(checkpoint["nnD_optimizer_state"])
                 else:
-                    logger.warning(
-                        "Previous model did not use GAN, but current does."
-                    )
+                    logger.warning("Previous model did not use GAN, but current does.")
                     logger.warning("Using new GAN model from scratch.")
             else:
                 nnD.apply(models.weights_init_normal)
             logger.debug("DIS Network:\n{}".format(nnD))
-            logger.debug(
-                "DIS Network, number of parameters: {}".format(nnD.num_params)
-            )
+            logger.debug("DIS Network, number of parameters: {}".format(nnD.num_params))
 
         # --- Do the actual train
         # --- TODO: compute statistical boostrap to define if a model is
@@ -533,22 +483,16 @@ def main():
         if opts.net_out_type == "C" and opts.fix_class_imbalance:
             if opts.out_mode == "LR":
                 l_w = (
-                    torch.from_numpy(train_data.w[0])
-                    .type(torch.FloatTensor)
-                    .to(device)
+                    torch.from_numpy(train_data.w[0]).type(torch.FloatTensor).to(device)
                 )
                 r_w = (
-                    torch.from_numpy(train_data.w[1])
-                    .type(torch.FloatTensor)
-                    .to(device)
+                    torch.from_numpy(train_data.w[1]).type(torch.FloatTensor).to(device)
                 )
                 class_weight = [l_w, r_w]
                 logger.debug("class weight: {}".format(train_data.w))
             else:
                 lossG.weight = (
-                    torch.from_numpy(train_data.w)
-                    .type(torch.FloatTensor)
-                    .to(device)
+                    torch.from_numpy(train_data.w).type(torch.FloatTensor).to(device)
                 )
                 logger.debug("class weight: {}".format(train_data.w))
 
@@ -566,9 +510,7 @@ def main():
                 y_gt = sample["label"].to(device)
                 y_gen = nnG(x)
                 if opts.out_mode == "LR" and opts.net_out_type == "C":
-                    if (y_gen[0] != y_gen[0]).any() or (
-                        y_gen[1] != y_gen[1]
-                    ).any():
+                    if (y_gen[0] != y_gen[0]).any() or (y_gen[1] != y_gen[1]).any():
                         logger.error("NaN values found in hypotesis")
                         logger.error("Inputs: {}".format(sample["id"]))
                         raise RuntimeError
@@ -579,9 +521,9 @@ def main():
                         lossG.weight = class_weight[1]
                         g_loss += lossG(y_gen[1], torch.squeeze(y_r, dim=1))
                     else:
-                        g_loss = lossG(
-                            y_gen[0], torch.squeeze(y_l, dim=1)
-                        ) + lossG(y_gen[1], torch.squeeze(y_r, dim=1))
+                        g_loss = lossG(y_gen[0], torch.squeeze(y_l, dim=1)) + lossG(
+                            y_gen[1], torch.squeeze(y_r, dim=1)
+                        )
                     # g_loss = lossG(y_gen[0],torch.squeeze(y_l)) + lossG(y_gen[1],torch.squeeze(y_r))
                 else:
                     if (y_gen != y_gen).any():
@@ -632,12 +574,8 @@ def main():
                         fake_D = torch.cat([x, y_gen], 1).detach()
                     y_dis_fake = nnD(fake_D)
                     label_D_size = y_dis_real.size()
-                    real_y = (
-                        torch.FloatTensor(label_D_size).fill_(1.0).to(device)
-                    )
-                    fake_y = (
-                        torch.FloatTensor(label_D_size).fill_(0.0).to(device)
-                    )
+                    real_y = torch.FloatTensor(label_D_size).fill_(1.0).to(device)
+                    fake_y = torch.FloatTensor(label_D_size).fill_(0.0).to(device)
                     d_loss_real = lossD(y_dis_real, real_y)
                     d_loss_fake = lossD(y_dis_fake, fake_y)
                     d_loss = (d_loss_real + d_loss_fake) * 0.5
@@ -689,9 +627,9 @@ def main():
                         if opts.out_mode == "LR" and opts.net_out_type == "C":
                             v_l, v_r = torch.split(v_label, 1, dim=1)
                             lossG.weight = None
-                            v_loss = lossG(
-                                v_y[0], torch.squeeze(v_l, dim=1)
-                            ) + lossG(v_y[1], torch.squeeze(v_r, dim=1))
+                            v_loss = lossG(v_y[0], torch.squeeze(v_l, dim=1)) + lossG(
+                                v_y[1], torch.squeeze(v_r, dim=1)
+                            )
                         else:
                             v_loss = lossG(v_y, v_label)
                         # v_loss = v_loss * (1/v_y.data[0].numel())
@@ -710,9 +648,7 @@ def main():
                 )
                 if opts.use_gan:
                     writer.add_scalar("train/lossD", epoch_lossD / batch, epoch)
-                    writer.add_scalar(
-                        "train/D_loss_Real", epoch_lossR / batch, epoch
-                    )
+                    writer.add_scalar("train/D_loss_Real", epoch_lossR / batch, epoch)
                 if opts.do_val:
                     writer.add_scalar("val/lossG", val_loss, epoch)
             # --- Save model under val or min loss
@@ -728,17 +664,10 @@ def main():
                         state["nnD_state"] = nnD.state_dict()
                         state["nnD_optimizer_state"] = optimizerD.state_dict()
                     best_model = save_checkpoint(
-                        state,
-                        True,
-                        opts,
-                        logger,
-                        epoch,
-                        criterion="val" + opts.g_loss,
+                        state, True, opts, logger, epoch, criterion="val" + opts.g_loss
                     )
                     logger.info(
-                        "New best model, from {} to {}".format(
-                            best_val, val_loss
-                        )
+                        "New best model, from {} to {}".format(best_val, val_loss)
                     )
                     best_val = val_loss
             else:
@@ -756,9 +685,7 @@ def main():
                         state, True, opts, logger, epoch, criterion=opts.g_loss
                     )
                     logger.info(
-                        "New best model, from {} to {}".format(
-                            best_tr, epoch_lossG
-                        )
+                        "New best model, from {} to {}".format(best_tr, epoch_lossG)
                     )
                     best_tr = epoch_lossG
             # --- Save checkpoint
@@ -775,9 +702,7 @@ def main():
                 best_model = save_checkpoint(state, False, opts, logger, epoch)
 
         logger.info(
-            "Trining stage done. total time taken: {}".format(
-                time.time() - train_start
-            )
+            "Trining stage done. total time taken: {}".format(time.time() - train_start)
         )
         # ---- Train is done, next is to save validation inference
         if opts.do_val:
@@ -815,8 +740,7 @@ def main():
                         nnG.load_state_dict(checkpoint["nnG_state"])
                     else:
                         checkpoint = torch.load(
-                            best_model,
-                            map_location=lambda storage, loc: storage,
+                            best_model, map_location=lambda storage, loc: storage
                         )
                         nnG.load_state_dict(checkpoint["nnG_state"])
                     if opts.do_off:
@@ -853,11 +777,7 @@ def main():
                     if opts.save_prob_mat:
                         for idx, data in enumerate(v_y_gen.data):
                             fh = open(
-                                res_path
-                                + "/prob_mat/"
-                                + v_ids[idx]
-                                + ".pickle",
-                                "wb",
+                                res_path + "/prob_mat/" + v_ids[idx] + ".pickle", "wb"
                             )
                             if opts.use_gpu:
                                 pickle.dump(data.cpu().float().numpy(), fh, -1)
@@ -933,9 +853,7 @@ def main():
             try:
                 os.makedirs(os.path.join(res_path, "page"))
             except OSError as exc:
-                if exc.errno == errno.EEXIST and os.path.isdir(
-                    res_path + "/page"
-                ):
+                if exc.errno == errno.EEXIST and os.path.isdir(res_path + "/page"):
                     pass
                 else:
                     raise
@@ -966,22 +884,17 @@ def main():
                     nnG.load_state_dict(checkpoint["nnG_state"])
                 else:
                     checkpoint = torch.load(
-                        opts.prev_model,
-                        map_location=lambda storage, loc: storage,
+                        opts.prev_model, map_location=lambda storage, loc: storage
                     )
                     nnG.load_state_dict(checkpoint["nnG_state"])
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
                 logger.debug("GEN Network:\n{}".format(nnG))
                 logger.debug(
-                    "GEN Network, number of parameters: {}".format(
-                        nnG.num_params
-                    )
+                    "GEN Network, number of parameters: {}".format(nnG.num_params)
                 )
             else:
-                logger.debug(
-                    "Using prevously loaded Generative module for test..."
-                )
+                logger.debug("Using prevously loaded Generative module for test...")
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
 
@@ -1045,21 +958,14 @@ def main():
                     if opts.out_mode == "LR":
                         for idx, data in enumerate(te_y_gen[0].data):
                             fh = open(
-                                res_path
-                                + "/prob_mat/"
-                                + te_ids[idx]
-                                + ".pickle",
-                                "wb",
+                                res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "wb"
                             )
                             if opts.use_gpu:
                                 pickle.dump(
                                     tuple(
                                         (
                                             data.cpu().float().numpy(),
-                                            te_y_gen[1]
-                                            .data.cpu()
-                                            .float()
-                                            .numpy(),
+                                            te_y_gen[1].data.cpu().float().numpy(),
                                         )
                                     ),
                                     fh,
@@ -1081,11 +987,7 @@ def main():
                     else:
                         for idx, data in enumerate(te_y_gen.data):
                             fh = open(
-                                res_path
-                                + "/prob_mat/"
-                                + te_ids[idx]
-                                + ".pickle",
-                                "wb",
+                                res_path + "/prob_mat/" + te_ids[idx] + ".pickle", "wb"
                             )
                             if opts.use_gpu:
                                 pickle.dump(data.cpu().float().numpy(), fh, -1)
@@ -1163,9 +1065,7 @@ def main():
             try:
                 os.makedirs(os.path.join(res_path, "page"))
             except OSError as exc:
-                if exc.errno == errno.EEXIST and os.path.isdir(
-                    res_path + "/page"
-                ):
+                if exc.errno == errno.EEXIST and os.path.isdir(res_path + "/page"):
                     pass
                 else:
                     raise
@@ -1196,22 +1096,17 @@ def main():
                     nnG.load_state_dict(checkpoint["nnG_state"])
                 else:
                     checkpoint = torch.load(
-                        opts.prev_model,
-                        map_location=lambda storage, loc: storage,
+                        opts.prev_model, map_location=lambda storage, loc: storage
                     )
                     nnG.load_state_dict(checkpoint["nnG_state"])
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
                 logger.debug("GEN Network:\n{}".format(nnG))
                 logger.debug(
-                    "GEN Network, number of parameters: {}".format(
-                        nnG.num_params
-                    )
+                    "GEN Network, number of parameters: {}".format(nnG.num_params)
                 )
             else:
-                logger.debug(
-                    "Using prevously loaded Generative module for prod..."
-                )
+                logger.debug("Using prevously loaded Generative module for prod...")
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
 
@@ -1236,9 +1131,7 @@ def main():
                 opts.prod_img_list = pr_data.img_list
             else:
                 logger.info(
-                    "Loading pre-processed data from {}".format(
-                        opts.prod_img_list
-                    )
+                    "Loading pre-processed data from {}".format(opts.prod_img_list)
                 )
                 pr_data.set_img_list(opts.prod_img_list)
 
@@ -1284,8 +1177,7 @@ def main():
                 if opts.save_prob_mat:
                     for idx, data in enumerate(pr_y_gen.data):
                         fh = open(
-                            res_path + "/prob_mat/" + pr_ids[idx] + ".pickle",
-                            "wb",
+                            res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "wb"
                         )
                         if opts.use_gpu:
                             pickle.dump(data.cpu().float().numpy(), fh, -1)

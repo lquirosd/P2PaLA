@@ -25,9 +25,7 @@ class htrDataset(Dataset):
     Class to handle HTR dataset feeding
     """
 
-    def __init__(
-        self, img_lst, label_lst=None, transform=None, logger=None, opts=None
-    ):
+    def __init__(self, img_lst, label_lst=None, transform=None, logger=None, opts=None):
         """
         Args:
             img_lst (string): Path to the list of images to be processed
@@ -63,12 +61,8 @@ class htrDataset(Dataset):
                     with open(l, "rb") as fh:
                         label = pickle.load(fh)
                     self.w += np.bincount(label.flatten(), minlength=2)
-                    self.prior[
-                        tuple((label, temp_index[0], temp_index[1]))
-                    ] += 1
-                self.w = self.w / (
-                    (len(self.label_paths) * opts.img_size.sum()) + 2
-                )
+                    self.prior[tuple((label, temp_index[0], temp_index[1]))] += 1
+                self.w = self.w / ((len(self.label_paths) * opts.img_size.sum()) + 2)
                 self.w = 1 / np.log(opts.weight_const + self.w)
                 self.prior += np.finfo(float).eps
                 self.prior = self.prior / self.prior.sum(axis=0)[None, :, :]
@@ -78,15 +72,9 @@ class htrDataset(Dataset):
                     np.ones(len(opts.regions) + 1, dtype=np.float),
                 ]
                 self.prior = [
+                    np.zeros((2, opts.img_size[0], opts.img_size[1]), dtype=np.float),
                     np.zeros(
-                        (2, opts.img_size[0], opts.img_size[1]), dtype=np.float
-                    ),
-                    np.zeros(
-                        (
-                            len(opts.regions) + 1,
-                            opts.img_size[0],
-                            opts.img_size[1],
-                        ),
+                        (len(opts.regions) + 1, opts.img_size[0], opts.img_size[1]),
                         dtype=np.float,
                     ),
                 ]
@@ -94,15 +82,11 @@ class htrDataset(Dataset):
                     with open(l, "rb") as fh:
                         label = pickle.load(fh)
                     self.w[0] += np.bincount(label[0].flatten(), minlength=2)
-                    self.prior[0][
-                        tuple((label[0], temp_index[0], temp_index[1]))
-                    ] += 1
+                    self.prior[0][tuple((label[0], temp_index[0], temp_index[1]))] += 1
                     self.w[1] += np.bincount(
                         label[1].flatten(), minlength=len(opts.regions) + 1
                     )
-                    self.prior[1][
-                        tuple((label[1], temp_index[0], temp_index[1]))
-                    ] += 1
+                    self.prior[1][tuple((label[1], temp_index[0], temp_index[1]))] += 1
                 self.w[0] = self.w[0] / (
                     (len(self.label_paths) * opts.img_size.sum()) + 2
                 )
@@ -114,13 +98,9 @@ class htrDataset(Dataset):
                 self.w[0] = 1 / np.log(opts.weight_const + self.w[0])
                 self.w[1] = 1 / np.log(opts.weight_const + self.w[1])
                 self.prior[0] += np.finfo(float).eps
-                self.prior[0] = (
-                    self.prior[0] / self.prior[0].sum(axis=0)[None, :, :]
-                )
+                self.prior[0] = self.prior[0] / self.prior[0].sum(axis=0)[None, :, :]
                 self.prior[1] += np.finfo(float).eps
-                self.prior[1] = (
-                    self.prior[1] / self.prior[1].sum(axis=0)[None, :, :]
-                )
+                self.prior[1] = self.prior[1] / self.prior[1].sum(axis=0)[None, :, :]
             if opts.out_mode == "R":
                 self.w = np.ones(len(opts.regions) + 1, dtype=np.float)
                 self.prior = np.zeros(
@@ -133,9 +113,7 @@ class htrDataset(Dataset):
                     self.w += np.bincount(
                         label.flatten(), minlength=len(opts.regions) + 1
                     )
-                    self.prior[
-                        tuple((label, temp_index[0], temp_index[1]))
-                    ] += 1
+                    self.prior[tuple((label, temp_index[0], temp_index[1]))] += 1
                 self.w = self.w / (
                     (len(self.label_paths) * opts.img_size.sum())
                     + len(opts.regions)
@@ -161,12 +139,14 @@ class htrDataset(Dataset):
         # --- Normalize to [-1,1] range
         # --- TODO: Move norm comp and transforms to GPU
         if not self.build_label:
-            #--- resize image in-situ, so no need to save it to disk
-            image = cv2.resize(image,(self.opts.img_size[1],self.opts.img_size[0]), interpolation=cv2.INTER_CUBIC)
+            # --- resize image in-situ, so no need to save it to disk
+            image = cv2.resize(
+                image,
+                (self.opts.img_size[1], self.opts.img_size[0]),
+                interpolation=cv2.INTER_CUBIC,
+            )
 
-        image = (((2 / 255) * image.transpose((2, 0, 1))) - 1).astype(
-            np.float32
-        )
+        image = (((2 / 255) * image.transpose((2, 0, 1))) - 1).astype(np.float32)
         if self.build_label:
             fh = open(self.label_paths[idx], "rb")
             label = pickle.load(fh)
