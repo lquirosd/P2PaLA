@@ -8,6 +8,8 @@ usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--line_color LINE_COLOR] [--line_width LINE_WIDTH]
                  [--regions REGIONS [REGIONS ...]]
                  [--merge_regions MERGE_REGIONS [MERGE_REGIONS ...]]
+                 [--nontext_regions NONTEXT_REGIONS [NONTEXT_REGIONS ...]]
+                 [--region_type REGION_TYPE [REGION_TYPE ...]]
                  [--approx_alg {optimal,trace}] [--num_segments NUM_SEGMENTS]
                  [--max_vertex MAX_VERTEX] [--save_prob_mat SAVE_PROB_MAT]
                  [--batch_size BATCH_SIZE]
@@ -17,14 +19,15 @@ usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--e_stdv E_STDV] [--affine_trans AFFINE_TRANS]
                  [--t_stdv T_STDV] [--r_kappa R_KAPPA] [--sc_stdv SC_STDV]
                  [--sh_kappa SH_KAPPA] [--trans_prob TRANS_PROB]
-                 [--input_channels INPUT_CHANNELS] [--out_mode {L,R,LR}]
-                 [--cnn_ngf CNN_NGF] [--use_gan | --no-use_gan]
-                 [--gan_layers GAN_LAYERS] [--loss_lambda LOSS_LAMBDA]
-                 [--g_loss {L1,MSE,smoothL1}] [--net_out_type {C,R}]
-                 [--adam_lr ADAM_LR] [--adam_beta1 ADAM_BETA1]
-                 [--adam_beta2 ADAM_BETA2] [--do_train | --no-do_train]
-                 [--cont_train] [--prev_model PREV_MODEL]
-                 [--save_rate SAVE_RATE] [--tr_data TR_DATA] [--epochs EPOCHS]
+                 [--do_prior DO_PRIOR] [--input_channels INPUT_CHANNELS]
+                 [--out_mode {L,R,LR}] [--cnn_ngf CNN_NGF]
+                 [--use_gan | --no-use_gan] [--gan_layers GAN_LAYERS]
+                 [--loss_lambda LOSS_LAMBDA] [--g_loss {L1,MSE,smoothL1}]
+                 [--net_out_type {C,R}] [--adam_lr ADAM_LR]
+                 [--adam_beta1 ADAM_BETA1] [--adam_beta2 ADAM_BETA2]
+                 [--do_train | --no-do_train] [--cont_train]
+                 [--prev_model PREV_MODEL] [--save_rate SAVE_RATE]
+                 [--tr_data TR_DATA] [--epochs EPOCHS]
                  [--tr_img_list TR_IMG_LIST] [--tr_label_list TR_LABEL_LIST]
                  [--fix_class_imbalance FIX_CLASS_IMBALANCE]
                  [--weight_const WEIGHT_CONST] [--do_test | --no-do_test]
@@ -80,6 +83,14 @@ Data Related Parameters:
                         Merge regions on PAGE file into a single one. Format
                         --merge_regions r1:r2,r3 r4:r5, then r2 and r3 will be
                         merged into r1 and r5 into r4 (default: {})
+  --nontext_regions NONTEXT_REGIONS [NONTEXT_REGIONS ...]
+                        List of regions where no text lines are expected.
+                        Format: --nontext_regions r1 r2 r3 ... (default: None)
+  --region_type REGION_TYPE [REGION_TYPE ...]
+                        Type of region on PAGE file. Format --region_type
+                        t1:r1,r3 t2:r5, then type t1 will assigned to regions
+                        r1 and r3 and type t2 to r5 and so on... (default:
+                        None)
   --approx_alg {optimal,trace}
                         Algorith to approximate baseline to N segments.
                         optimal: [Perez & Vidal, 1994] algorithm. trace: Use
@@ -120,6 +131,8 @@ Data Loader Parameters:
                         (default: 20)
   --trans_prob TRANS_PROB
                         probabiliti to perform a transformation (default: 0.5)
+  --do_prior DO_PRIOR   Compute prior distribution over classes (default:
+                        False)
 
 Neural Networks Parameters:
   --input_channels INPUT_CHANNELS
