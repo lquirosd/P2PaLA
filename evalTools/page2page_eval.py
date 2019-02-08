@@ -105,16 +105,17 @@ def compute_metrics(hyp, target, opts, logger=None):
         logger.debug("p_cc,m_acc,m_iu,f_iu,target_file,hyp_file")
         hyp = np.sort(hyp)
         target = np.sort(target)
+        reg_types = list(set(opts.region_types.values()))
         for i, (h, t) in enumerate(zip(hyp, target)):
             target_data = pageData(t)
             target_data.parse()
             img_size = np.array(target_data.get_size())
             target_mask = target_data.build_mask(
-                img_size, "TextRegion", opts.regions_colors
+                img_size, reg_types, opts.regions_colors
             )
             hyp_data = pageData(h)
             hyp_data.parse()
-            hyp_mask = hyp_data.build_mask(img_size, "TextRegion", opts.regions_colors)
+            hyp_mask = hyp_data.build_mask(img_size, reg_types, opts.regions_colors)
 
             metrics["p_acc"][i] = ev.pixel_accuraccy(hyp_mask, target_mask)
             metrics["m_acc"][i] = ev.mean_accuraccy(hyp_mask, target_mask)
@@ -127,7 +128,7 @@ def compute_metrics(hyp, target, opts, logger=None):
             # per_class_m['pc_p_acc'][i] = ev.per_class_accuraccy(hyp_mask,target_mask)
             # per_class_m += ev.per_class_accuraccy(hyp_mask,target_mask)[0]
             logger.debug(
-                "{:.4f},{:.4f},{:.4f} {:.4f},{},{}".format(
+                "{:.4f},{:.4f},{:.4f},{:.4f},{},{}".format(
                     metrics["p_acc"][i],
                     metrics["m_acc"][i],
                     metrics["m_iu"][i],

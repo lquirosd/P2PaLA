@@ -712,9 +712,10 @@ class Arguments(object):
 
     def _build_region_types(self):
         """ build a dic of regions and their respective type"""
-        if self.opts.region_type == None:
-            return None
         reg_type = {}
+        if self.opts.region_type == None:
+            for reg in self.opts.regions:
+                reg_type[reg] = "TextRegion"
         msg = ""
         for c in self.opts.region_type:
             try:

@@ -147,6 +147,7 @@ class htrDataProcess:
                         self.line_color,
                         self.build_labels,
                         self.opts.out_mode,
+                        list(set(self.opts.region_types.values())),
                     )
                 )
             )
@@ -242,12 +243,7 @@ class htrDataProcess:
         # --- get regions and lines for each class
         for reg in reg_list:
             r_color = colors[reg]
-            # --- TODO: add support to other regions types (e.g. Graphic, Table, Chart, etc etc)
-            # if reg in self.opts.reg_types:
-            #    r_type = reg_types[reg]
-            # else:
-            #    r_type = "TextRegion"
-            r_type = "TextRegion"
+            r_type = self.opts.region_types[reg]
 
             # --- fill the array is faster then create a new one or mult by 0
             reg_mask.fill(0)
@@ -409,6 +405,7 @@ def _processData(params):
         line_color,
         build_labels,
         ext_mode,
+        node_types,
     ) = params
     img_id = os.path.splitext(os.path.basename(img_path))[0]
     img_dir = os.path.dirname(img_path)
@@ -436,10 +433,10 @@ def _processData(params):
             lin_mask = gt_data.build_baseline_mask(out_size, line_color, line_width)
         # --- buid regions mask
         if ext_mode == "LR":
-            reg_mask = gt_data.build_mask(out_size, "TextRegion", classes)
+            reg_mask = gt_data.build_mask(out_size, node_types, classes)
             label = np.array((lin_mask, reg_mask))
         elif ext_mode == "R":
-            label = gt_data.build_mask(out_size, "TextRegion", classes)
+            label = gt_data.build_mask(out_size, node_types, classes)
         else:
             label = lin_mask
 

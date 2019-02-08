@@ -119,28 +119,29 @@ class pageData:
         size = self.get_size()[::-1]
         mask = np.zeros(out_size, np.uint8)
         scale_factor = out_size / size
-        for element in self.root.findall("".join([".//", self.base, element_name])):
-            # --- get element type
-            e_type = self.get_region_type(element)
-            if e_type == None or e_type not in color_dic:
-                e_color = 175
-                self.logger.warning(
-                    'Element type "{}"undefined on color dic, set to default=175'.format(
-                        e_type
+        for element in element_name:
+            for node in self.root.findall("".join([".//", self.base, element])):
+                # --- get element type
+                e_type = self.get_region_type(node)
+                if e_type == None or e_type not in color_dic:
+                    e_color = 175
+                    self.logger.warning(
+                        'Element type "{}"undefined on color dic, set to default=175'.format(
+                            e_type
+                        )
                     )
-                )
-                print(
-                    'Element type "{}"undefined on color dic, set to default=175'.format(
-                        e_type
+                    print(
+                        'Element type "{}"undefined on color dic, set to default=175'.format(
+                            e_type
+                        )
                     )
-                )
 
-            else:
-                e_color = color_dic[e_type]
-            # --- get element coords
-            coords = self.get_coords(element)
-            coords = (coords * np.flip(scale_factor, 0)).astype(np.int)
-            cv2.fillConvexPoly(mask, coords, e_color)
+                else:
+                    e_color = color_dic[e_type]
+                # --- get element coords
+                coords = self.get_coords(node)
+                coords = (coords * np.flip(scale_factor, 0)).astype(np.int)
+                cv2.fillConvexPoly(mask, coords, e_color)
         return mask
 
     def build_baseline_mask(self, out_size, color, line_width):

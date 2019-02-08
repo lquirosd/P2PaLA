@@ -134,13 +134,14 @@ def jaccard_index(hyp, target):
     """
     computes jaccard index (I/U)
     """
+    smooth = np.finfo(np.float).eps
     cl = np.unique(target)
     n_cl = cl.size
     j_index = np.zeros(n_cl)
     for i, c in enumerate(cl):
         I = (target[target == hyp] == c).sum()
         U = (target == c).sum() + (hyp == c).sum()
-        j_index[i] = I / (U - I)
+        j_index[i] = (I + smooth) / (U - I + smooth)
     return (j_index, cl)
 
 
