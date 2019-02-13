@@ -277,7 +277,7 @@ class htrDataProcess:
                 for x in approx.reshape(-1, 2):
                     reg_coords = reg_coords + " {},{}".format(x[0], x[1])
 
-                if reg not in self.opts.nontext_regions:
+                if self.opts.nontext_regions == None or reg not in self.opts.nontext_regions:
                     # --- get lines inside the region
                     lin_mask.fill(0)
 
