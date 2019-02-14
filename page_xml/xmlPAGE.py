@@ -135,7 +135,7 @@ class pageData:
                             e_type
                         )
                     )
-
+                    continue
                 else:
                     e_color = color_dic[e_type]
                 # --- get element coords
