@@ -11,8 +11,8 @@ usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--nontext_regions NONTEXT_REGIONS [NONTEXT_REGIONS ...]]
                  [--region_type REGION_TYPE [REGION_TYPE ...]]
                  [--approx_alg {optimal,trace}] [--num_segments NUM_SEGMENTS]
-                 [--max_vertex MAX_VERTEX] [--save_prob_mat SAVE_PROB_MAT]
-                 [--batch_size BATCH_SIZE]
+                 [--max_vertex MAX_VERTEX] [--line_offset LINE_OFFSET]
+                 [--save_prob_mat SAVE_PROB_MAT] [--batch_size BATCH_SIZE]
                  [--shuffle_data | --no-shuffle_data]
                  [--pin_memory | --no-pin_memory] [--flip_img | --no-flip_img]
                  [--elastic_def ELASTIC_DEF] [--e_alpha E_ALPHA]
@@ -100,6 +100,9 @@ Data Related Parameters:
   --max_vertex MAX_VERTEX
                         Maximun number of vertex used to approximate the
                         baselined when use 'optimal' algorithm (default: 10)
+  --line_offset LINE_OFFSET
+                        Fixed width of polygon around each baseline. (default:
+                        50)
   --save_prob_mat SAVE_PROB_MAT
                         Save Network Prob Matrix at Inference (default: False)
 

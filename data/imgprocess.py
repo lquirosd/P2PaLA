@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 from multiprocessing import Pool
 import itertools
+from shapely.geometry import LineString
 
 try:
     import cPickle as pickle
@@ -277,7 +278,10 @@ class htrDataProcess:
                 for x in approx.reshape(-1, 2):
                     reg_coords = reg_coords + " {},{}".format(x[0], x[1])
 
-                if self.opts.nontext_regions == None or reg not in self.opts.nontext_regions:
+                if (
+                    self.opts.nontext_regions == None
+                    or reg not in self.opts.nontext_regions
+                ):
                     # --- get lines inside the region
                     lin_mask.fill(0)
 
@@ -307,13 +311,18 @@ class htrDataProcess:
                                 l_cnt = cv2.convexHull(l_cnt)
                             lin_coords = ""
                             l_cnt = (l_cnt * cScale).astype("int32")
+                            (is_line, approx_lin) = self._get_baseline(o_img, l_cnt)
+                            if is_line == False:
+                                continue
+                            is_line, l_cnt = build_baseline_offset(
+                                approx_lin, offset=self.opts.line_offset
+                            )
+                            if is_line == False:
+                                continue
                             for l_x in l_cnt.reshape(-1, 2):
                                 lin_coords = lin_coords + " {},{}".format(
                                     l_x[0], l_x[1]
                                 )
-                            (is_line, approx_lin) = self._get_baseline(o_img, l_cnt)
-                            if is_line == False:
-                                continue
                             text_line = page.add_element(
                                 "TextLine",
                                 str(l_id) + "_" + str(r_id),
@@ -458,3 +467,24 @@ def symlink_force(target, link_name):
             os.symlink(target, link_name)
         else:
             raise e
+
+
+def build_baseline_offset(baseline, offset=50):
+    """
+    build a simple polygon of width $offset around the
+    provided baseline, 75% over the baseline and 25% below.
+    """
+    line = LineString(baseline)
+    up_offset = line.parallel_offset(offset * 0.75, "right", join_style=2)
+    bot_offset = line.parallel_offset(offset * 0.25, "left", join_style=2)
+    if (
+        up_offset.type != "LineString"
+        or up_offset.is_empty == True
+        or bot_offset.type != "LineString"
+        or bot_offset.is_empty == True
+    ):
+        return False, None
+    else:
+        up_offset = np.array(up_offset.coords).astype(np.int)
+        bot_offset = np.array(bot_offset.coords).astype(np.int)
+        return True, np.vstack((up_offset, bot_offset))

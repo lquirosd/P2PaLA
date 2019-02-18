@@ -187,6 +187,12 @@ class Arguments(object):
                                the baselined when use 'optimal' algorithm""",
         )
         data.add_argument(
+            "--line_offset",
+            default=50,
+            type=int,
+            help="""Fixed width of polygon around each baseline.""",
+        )
+        data.add_argument(
             "--save_prob_mat",
             default=False,
             type=bool,
@@ -712,11 +718,11 @@ class Arguments(object):
 
     def _build_region_types(self):
         """ build a dic of regions and their respective type"""
-        reg_type = {"full_page":"TextRegion"}
+        reg_type = {"full_page": "TextRegion"}
         if self.opts.region_type == None:
             for reg in self.opts.regions:
                 reg_type[reg] = "TextRegion"
-            return reg_type 
+            return reg_type
         msg = ""
         for c in self.opts.region_type:
             try:
