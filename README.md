@@ -38,7 +38,7 @@ Install
 python setup.py install
 ```
 
-> To install python dependencies alone, use [requirements file](requirements.txt) `pip install -r requirements.txt`
+> To install python dependencies alone, use  [requirements file](conda_requirements.yml) `conda env create --file conda_requirements.yml`
 
 Usage
 =====

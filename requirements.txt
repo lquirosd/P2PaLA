@@ -5,6 +5,7 @@ future
 numpy
 scipy
 pyclipper
+shapely
 #--- Optional, uncomment to install
 tensorboardx
 matplotlib
