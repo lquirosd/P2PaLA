@@ -1,0 +1,17 @@
+name: p2pala
+channels:
+    - defaults
+    - pytorch
+    - conda-forge
+dependencies:
+    - python=3.6
+    - pytorch=1.0
+    - torchvision
+    - cudatoolkit=9.0
+    - opencv=3.4.4
+    - scipy
+    - shapely
+    - matplotlib
+    - tensorboardx
+    - pip:
+        - pyclipper
