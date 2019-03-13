@@ -23,6 +23,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 
 from utils.optparse import Arguments as arguments
+from utils import misc 
 from nn_models import models
 from data import dataset
 from data import transforms as transforms
@@ -89,6 +90,11 @@ def check_inputs(opts, logger):
                 logger.error(
                     "Folder {} does not exists or is unreadable".format(opts.tr_data)
                 )
+            else:
+                valid, msg = misc.check_input_folder(opts.tr_data,True)
+                if not valid:
+                    n_err += n_err
+                    logger.error(msg)
         else:
             if not (
                 os.path.isfile(opts.tr_img_list)
@@ -115,6 +121,11 @@ def check_inputs(opts, logger):
                 logger.error(
                     "Folder {} does not exists or is unreadable".format(opts.te_data)
                 )
+            else:
+                valid, msg = misc.check_input_folder(opts.te_data,True)
+                if not valid:
+                    n_err += n_err
+                    logger.error(msg)
         else:
             if not (
                 os.path.isfile(opts.te_img_list)
@@ -141,6 +152,11 @@ def check_inputs(opts, logger):
                 logger.error(
                     "Folder {} does not exists or is unreadable".format(opts.val_data)
                 )
+            else:
+                valid, msg = misc.check_input_folder(opts.val_data,True)
+                if not valid:
+                    n_err += n_err
+                    logger.error(msg)
         else:
             if not (
                 os.path.isfile(opts.val_img_list)
@@ -169,6 +185,11 @@ def check_inputs(opts, logger):
                 logger.error(
                     "Folder {} does not exists or is unreadable".format(opts.prod_data)
                 )
+            else:
+                valid, msg = misc.check_input_folder(opts.prod_data,False)
+                if not valid:
+                    n_err += n_err
+                    logger.error(msg)
         else:
             if not (
                 os.path.isfile(opts.prod_img_list)

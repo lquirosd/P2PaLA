@@ -474,9 +474,13 @@ def build_baseline_offset(baseline, offset=50):
     build a simple polygon of width $offset around the
     provided baseline, 75% over the baseline and 25% below.
     """
-    line = LineString(baseline)
-    up_offset = line.parallel_offset(offset * 0.75, "right", join_style=2)
-    bot_offset = line.parallel_offset(offset * 0.25, "left", join_style=2)
+    try:
+        line = LineString(baseline)
+        up_offset = line.parallel_offset(offset * 0.75, "right", join_style=2)
+        bot_offset = line.parallel_offset(offset * 0.25, "left", join_style=2)
+    except:
+        #--- TODO: check if this baselines can be saved
+        return False, None
     if (
         up_offset.type != "LineString"
         or up_offset.is_empty == True

@@ -142,6 +142,10 @@ class pageData:
                 coords = self.get_coords(node)
                 coords = (coords * np.flip(scale_factor, 0)).astype(np.int)
                 cv2.fillConvexPoly(mask, coords, e_color)
+        if not mask.any():
+            self.logger.warning(
+                    "File {} do not contains regions".format(self.name)
+                    )
         return mask
 
     def build_baseline_mask(self, out_size, color, line_width):
@@ -160,6 +164,10 @@ class pageData:
             coords = np.array([i.split(",") for i in str_coords]).astype(np.int)
             coords = (coords * np.flip(scale_factor, 0)).astype(np.int)
             cv2.polylines(mask, [coords.reshape(-1, 1, 2)], False, color, line_width)
+        if not mask.any():
+            self.logger.warning(
+                    "File {} do not contains baselines".format(self.name)
+                    )
         return mask
 
     def get_text(self, element):
