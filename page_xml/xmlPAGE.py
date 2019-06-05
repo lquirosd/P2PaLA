@@ -51,6 +51,21 @@ class pageData:
         """
         return self.root.findall("".join([".//", self.base, region_name])) or None
 
+    def get_zones(self, region_names):
+        to_return = {}
+        idx = 0
+        for element in region_names:
+            for node in self.root.findall("".join([".//", self.base, element])):
+                to_return[idx] = {'coords':self.get_coords(node),
+                        'type': self.get_region_type(node),
+                        'id':self.get_id(node)} 
+                idx += 1
+        if to_return:
+            return to_return
+        else:
+            return None
+
+
     def get_id(self, element):
         """
         get Id of current element
@@ -284,7 +299,8 @@ class pageData:
         parent = self.page if parent == None else parent
         t_reg = ET.SubElement(parent, r_class)
         t_reg.attrib = {
-            "id": "_".join([r_class, str(r_id)]),
+            #"id": "_".join([r_class, str(r_id)]),
+            "id": str(r_id),
             "custom": "".join(["structure {type:", r_type, ";}"]),
         }
         ET.SubElement(t_reg, "Coords").attrib = {"points": r_coords}

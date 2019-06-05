@@ -31,6 +31,8 @@ def main():
             axs[n].imshow(data[n])
             axs[n].set_title("dim=" + str(n))
 
+        axs[data.ndim-2].imshow(np.argmax(data,axis=0))
+
     plt.show()
     exit()
 

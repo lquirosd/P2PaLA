@@ -6,6 +6,8 @@ import glob
 import logging
 import errno
 import sys
+import string
+import random
 
 import numpy as np
 import cv2
@@ -43,6 +45,7 @@ class htrDataProcess:
         self.do_class = opts.net_out_type == "C"
         self.line_color = 1 if opts.do_class else opts.line_color
         self.hyp_xml_list = []
+        self.validValues = string.ascii_uppercase + string.ascii_lowercase + string.digits
         if self.opts.out_mode == "L":
             self.th_span = 64
         else:
@@ -210,6 +213,7 @@ class htrDataProcess:
                 colors = self.opts.regions_colors
             elif self.opts.out_mode == "LR":
                 lines = data[0].astype(np.uint8)
+                #lines = data[0]
                 r_data = data[1]
                 colors = self.opts.regions_colors
             else:
@@ -240,6 +244,11 @@ class htrDataProcess:
         lin_mask = np.zeros(lines.shape, dtype="uint8")
         r_id = 0
         kernel = np.ones((5, 5), np.uint8)
+        if self.opts.line_alg == 'external' and self.opts.net_out_type != "R":
+            cv2.imwrite(os.path.join(out_folder, "page", img_id + ".png"),
+                cv2.resize(np.abs(lines-1).astype(np.uint8)*255,
+                (o_cols,o_rows),
+                interpolation = cv2.INTER_NEAREST) )
 
         # --- get regions and lines for each class
         for reg in reg_list:
@@ -285,7 +294,7 @@ class htrDataProcess:
                     # --- get lines inside the region
                     lin_mask.fill(0)
 
-                    if not self.opts.out_mode == "R":
+                    if not self.opts.out_mode == "R" and self.opts.line_alg != "external":
                         cv2.fillConvexPoly(lin_mask, points=cnt, color=(1, 1, 1))
                         lin_mask = cv2.erode(lin_mask, kernel, iterations=1)
                         lin_mask = cv2.dilate(lin_mask, kernel, iterations=1)
@@ -297,8 +306,9 @@ class htrDataProcess:
                         if len(l_cont) == 0:
                             continue
                         # --- Add region to XML only is there is some line
+                        uuid = ''.join(random.choice(self.validValues) for _ in range(4))
                         text_reg = page.add_element(
-                            r_type, str(r_id), reg, reg_coords.strip()
+                            r_type, "r" + uuid + "_" +str(r_id), reg, reg_coords.strip()
                         )
                         n_lines = 0
                         for l_id, l_cnt in enumerate(l_cont):
@@ -323,9 +333,10 @@ class htrDataProcess:
                                 lin_coords = lin_coords + " {},{}".format(
                                     l_x[0], l_x[1]
                                 )
+                            uuid = ''.join(random.choice(self.validValues) for _ in range(4))
                             text_line = page.add_element(
                                 "TextLine",
-                                str(l_id) + "_" + str(r_id),
+                                "l" + uuid + "_" + str(l_id),
                                 reg,
                                 lin_coords.strip(),
                                 parent=text_reg,
@@ -337,12 +348,14 @@ class htrDataProcess:
                         if n_lines == 0:
                             page.remove_element(text_reg)
                     else:
+                        uuid = ''.join(random.choice(self.validValues) for _ in range(4))
                         text_reg = page.add_element(
-                            r_type, str(r_id), reg, reg_coords.strip()
+                            r_type, "r" + uuid + "_" + str(r_id), reg, reg_coords.strip()
                         )
                 else:
+                    uuid = ''.join(random.choice(self.validValues) for _ in range(4))
                     text_reg = page.add_element(
-                        r_type, str(r_id), reg, reg_coords.strip()
+                        r_type, "r" + uuid + "_" + str(r_id), reg, reg_coords.strip()
                     )
 
         page.save_xml()

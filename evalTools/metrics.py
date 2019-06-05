@@ -2,11 +2,17 @@ from __future__ import print_function
 from __future__ import division
 from builtins import range
 
+import os
+import sys
+
 import numpy as np
 from page_xml.xmlPAGE import pageData
 import pyclipper
 
-# import matplotlib.pyplot as plt
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
+from page_xml.xmlPAGE import pageData
+
+import matplotlib.pyplot as plt
 import cv2
 
 # --- GOAL Oriented Perfomance Evaluation Methodology for page Segmentation
@@ -98,6 +104,167 @@ def matching_structure(
     )
     return f
 
+def area_bin(poly, img):
+    """
+    returns the number of black pixels insude a polygon
+    """
+    
+
+
+def zone_map(hyp, target, img, alpha=0, dist=lambda r,h:int(r==h)):
+    """
+    Computes ZoneMap metric from:
+    O. Galibert, J. Kahn and I. Oparin, The zonemap metric for page 
+    segmentation and area classification in scanned documents, 2014 
+    IEEE International Conference on Image Processing (ICIP), Paris, 
+    2014, pp. 2594-2598.
+    Inputs: 
+        hyp: hypoteses data (PAGE-XML object)
+        target: reference data (PAGE-XML object)
+        img: pointer to image file. If img is not binary img=Otsu(img) 
+        alpha: classification error weigth [0,1]
+        dist: difference function between zones [0,1], default:
+            dist(h,r)=lambda(0 if h==r; 1 else)
+    """
+    if os.path.isfile(img):
+        img = cv2.imread(img,0)
+    if np.max(img) > 1:
+        _, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    img = np.abs(1-img).astype(np.uint8)
+
+    hyp_data = pageData(hyp)
+    hyp_data.parse()
+    tar_data = pageData(target)
+    tar_data.parse()
+    Hzones = hyp_data.get_zones(["TextRegion"])
+    Rzones = tar_data.get_zones(["TextRegion"])
+    #--- Mapping
+    tmp_H = np.zeros(img.shape,dtype=np.uint8)
+    tmp_R = np.zeros(img.shape,dtype=np.uint8)
+    force = np.zeros((len(Rzones),len(Hzones)))
+    area_R = 0
+    for i,R in enumerate(sorted(Rzones.keys())):
+        tmp_R.fill(0)
+        cv2.fillConvexPoly(tmp_R, Rzones[R]['coords'].astype(np.int), 1)
+        Rzones[R]['area'] = np.logical_and(img==1, img==tmp_R).sum()
+        area_R += Rzones[R]['area']
+        for j,H in enumerate(sorted(Hzones.keys())):
+            tmp_H.fill(0)
+            cv2.fillConvexPoly(tmp_H, Hzones[H]['coords'].astype(np.int),1)
+            #--- Intersection 
+            I = img[np.where(np.logical_and(tmp_R == tmp_H,tmp_R ==1))].sum()
+            #I = img[np.where(tmp_R == tmp_H)].sum()
+            Hzones[H]['area'] = np.logical_and(tmp_H==1, img==1).sum()
+            force[i][j] = I*((1/Rzones[R]['area'])+(1/Hzones[H]['area']))
+
+    print(force)
+    #--- get and sort non-zero links
+    nz = force != 0
+    s_index = np.unravel_index(np.where(nz, force, np.nan).argsort(axis=None)[:nz.sum()],force.shape)
+    s_index= (s_index[0][::-1], s_index[1][::-1])
+    #--- make groups
+    #--- Manage False Alarm and Miss groups
+    #---    False Alarm:
+    fa = np.where(force.sum(axis=0)==0)
+    g_id = 1
+    G = {}
+    for f in fa[0]:
+        G[g_id] = ([],[f])
+        #G[g_id] = ([],[Hzones[f]['id']])
+        g_id += 1
+    #---    Miss
+    mi = np.where(force.sum(axis=1)==0)
+    L = (np.zeros(len(Rzones), dtype=np.uint8),np.zeros(len(Hzones),dtype=np.uint8))
+    for m in mi[0]:
+        G[g_id] = ([m],[])
+        #G[g_id] = ([Rzones[m]['id']],[])
+        g_id += 1
+    for r_ix,h_ix in zip(s_index[0],s_index[1]):
+        print("H:{} R:{} L:{}".format(Hzones[h_ix]['id'],Rzones[r_ix]['id'],force[r_ix,h_ix]))
+        if L[0][r_ix] > 0 and L[1][h_ix] > 0:
+            #--- do not add to any group
+            pass
+        elif L[0][r_ix] == 0 and L[1][h_ix] ==0:
+            #--- create new group
+            G[g_id] = ([r_ix],([h_ix]))
+            #G[g_id] = ([Rzones[r_ix]['id']],[Hzones[h_ix]['id']])
+            L[0][r_ix] = g_id
+            L[1][h_ix] = g_id
+            g_id += 1
+        elif L[0][r_ix] == 0:
+            #--- only ref is not assigned
+            p_id = L[1][h_ix]
+            G[p_id][0].append(r_ix)
+            #G[p_id][0].append(Rzones[r_ix]['id'])
+            L[0][r_ix] = p_id
+            
+        else:
+            #--- only hyp is not assigned
+            p_id = L[0][r_ix]
+            G[p_id][1].append(h_ix)
+            #G[p_id][1].append(Hzones[h_ix]['id'])
+            L[1][h_ix] = p_id
+    print(G)
+    #--- Second stage, error calcualtion 
+    Ezm = 0
+    for gr_key in G.keys():
+        #--- handle false alarm:
+        if len(G[gr_key][0]) == 0:
+            Es = Hzones[G[gr_key][1][0]]['area']
+            #--- Ec = Es, E=(1-a)Es + aEc == Ec 
+            Ezm += Es
+        #--- handle miss:
+        elif len(G[gr_key][1]) == 0:
+            Es = Rzones[G[gr_key][0][0]]['area']
+            Ezm += Es
+        #--- handle match
+        elif len(G[gr_key][0]) == 1 and len(G[gr_key][1]) == 1:
+            tmp_R.fill(0)
+            cv2.fillConvexPoly(tmp_R, Rzones[G[gr_key][0][0]]['coords'].astype(np.int), 1)
+            tmp_H.fill(0)
+            cv2.fillConvexPoly(tmp_H, Hzones[G[gr_key][1][0]]['coords'].astype(np.int), 1)
+            reg_intersection = (img*tmp_R)[np.where(tmp_R == tmp_H)].sum()
+            Es = Rzones[G[gr_key][0][0]]['area'] + Hzones[G[gr_key][1][0]]['area'] - \
+                    (2* reg_intersection)
+            Ec = (dist(Rzones[G[gr_key][0][0]]['type'],Hzones[G[gr_key][1][0]]['type']) * reg_intersection) + Es
+            Ezm += ((1-alpha)*Es)+(alpha*Ec)
+        #--- handle split
+        elif len(G[gr_key][0]) == 1 and len(G[gr_key][1]) > 1:
+            tmp_R.fill(0)
+            cv2.fillConvexPoly(tmp_R, Rzones[G[gr_key][0][0]]['coords'].astype(np.int), 1)
+            tmp_H.fill(0)
+            tmp_H_o = tmp_H.copy()
+            for i,h in enumerate(G[gr_key][1]):
+                print(h)
+                cv2.fillConvexPoly(tmp_H, Hzones[h]['coords'].astype(np.int), 1 + i)
+                cv2.fillConvexPoly(tmp_H_o, Hzones[h]['coords'].astype(np.int), 1)
+            #--- handle sub-zones by configuration
+            #--- Miss Error i.e. in R but not in any H
+            #--- E = Area(z)
+            Er = (img*tmp_R)[np.where(tmp_R != tmp_H_o)].sum()
+            #--- False detection error i.e. H but not in R
+            Er += (img*tmp_H_o)[np.where(tmp_R != tmp_H_o)].sum()
+            #--- Segmentation error and Correct parts
+            Ec = 0 
+
+
+
+        #--- handle merge
+        elif len(G[gr_key][0]) > 1 and len(G[gr_key][1]) == 1:
+            pass
+
+
+    print(Ezm/area_R)
+
+        
+
+    
+
+
+    
+
+
+    
 
 # --- Pixel level accuraccy
 def pixel_accuraccy(hyp, target):

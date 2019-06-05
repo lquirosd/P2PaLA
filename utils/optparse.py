@@ -198,6 +198,13 @@ class Arguments(object):
             type=bool,
             help="Save Network Prob Matrix at Inference",
         )
+        data.add_argument(
+            "--line_alg",
+            default='basic',
+            type=str,
+            choices=["basic","external"],
+            help="Algorithm used during baseline detection, Stage 2",
+        )
         # ----------------------------------------------------------------------
         # ----- Define dataloader parameters
         # ----------------------------------------------------------------------
