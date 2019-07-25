@@ -523,6 +523,8 @@ def main():
             epoch_lossGAN = 0
             epoch_lossR = 0
             epoch_lossD = 0
+            if opts.do_off:
+                nnG.apply(models.on_dropout)
             for batch, sample in enumerate(train_dataloader):
                 # --- Reset Grads
                 # nnG.apply(models.zero_bias)
@@ -637,8 +639,11 @@ def main():
                 gan_loss.backward()
                 optimizerG.step()
             # --- forward pass val
+            batch += 1 # batch on enumerate start by 0
             if opts.do_val:
                 val_loss = 0
+                if opts.do_off:
+                    nnG.apply(models.off_dropout)
                 with torch.no_grad():
                     for v_batch, v_sample in enumerate(val_dataloader):
                         # --- set vars to volatile, since bo backward used
@@ -655,6 +660,7 @@ def main():
                             v_loss = lossG(v_y, v_label)
                         # v_loss = v_loss * (1/v_y.data[0].numel())
                         val_loss += v_loss.item() / v_label.data.size()[0]
+                    v_batch += 1 # batch on enumerate start by 0
                     val_loss = val_loss / v_batch
             # --- Write to Logs
             if not opts.no_display:
@@ -720,10 +726,10 @@ def main():
                 if opts.use_gan:
                     state["nnD_state"] = nnD.state_dict()
                     state["nnD_optimizer_state"] = optimizerD.state_dict()
-                best_model = save_checkpoint(state, False, opts, logger, epoch)
+                save_checkpoint(state, False, opts, logger, epoch)
 
         logger.info(
-            "Trining stage done. total time taken: {}".format(time.time() - train_start)
+            "Training stage done. total time taken: {}".format(time.time() - train_start)
         )
         # ---- Train is done, next is to save validation inference
         if opts.do_val:
@@ -1127,7 +1133,7 @@ def main():
                     "GEN Network, number of parameters: {}".format(nnG.num_params)
                 )
             else:
-                logger.debug("Using prevously loaded Generative module for prod...")
+                logger.debug("Using previously loaded Generative module for prod...")
                 if opts.do_off:
                     nnG.apply(models.off_dropout)
 

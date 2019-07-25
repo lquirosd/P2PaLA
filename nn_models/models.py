@@ -309,3 +309,8 @@ def off_dropout(m):
     classname = m.__class__.__name__
     if classname.find("Dropout") != -1:
         m.p = 0.0
+
+def on_dropout(m):
+    classname = m.__class__.__name__
+    if classname.find("Dropout") != -1:
+        m.p = 0.5
