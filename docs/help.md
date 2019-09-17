@@ -12,7 +12,8 @@ usage: P2PaLA.py [-h] [--config CONFIG] [--exp_name EXP_NAME]
                  [--region_type REGION_TYPE [REGION_TYPE ...]]
                  [--approx_alg {optimal,trace}] [--num_segments NUM_SEGMENTS]
                  [--max_vertex MAX_VERTEX] [--line_offset LINE_OFFSET]
-                 [--save_prob_mat SAVE_PROB_MAT] [--batch_size BATCH_SIZE]
+                 [--min_area MIN_AREA] [--save_prob_mat SAVE_PROB_MAT]
+                 [--line_alg {basic,external}] [--batch_size BATCH_SIZE]
                  [--shuffle_data | --no-shuffle_data]
                  [--pin_memory | --no-pin_memory] [--flip_img | --no-flip_img]
                  [--elastic_def ELASTIC_DEF] [--e_alpha E_ALPHA]
@@ -103,8 +104,13 @@ Data Related Parameters:
   --line_offset LINE_OFFSET
                         Fixed width of polygon around each baseline. (default:
                         50)
+  --min_area MIN_AREA   Minimum allowed area for Zone extraction, as a
+                        percentage of <--image_size> (default: 0.01)
   --save_prob_mat SAVE_PROB_MAT
                         Save Network Prob Matrix at Inference (default: False)
+  --line_alg {basic,external}
+                        Algorithm used during baseline detection, Stage 2
+                        (default: basic)
 
 Data Loader Parameters:
   --batch_size BATCH_SIZE
