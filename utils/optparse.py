@@ -193,6 +193,13 @@ class Arguments(object):
             help="""Fixed width of polygon around each baseline.""",
         )
         data.add_argument(
+            "--min_area",
+            default=0.01,
+            type=float,
+            help="""Minimum allowed area for Zone extraction,
+                    as a percentage of <--image_size>"""
+        )
+        data.add_argument(
             "--save_prob_mat",
             default=False,
             type=bool,

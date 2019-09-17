@@ -273,7 +273,7 @@ class htrDataProcess:
                 # --- remove small objects
                 if cnt.shape[0] < 4:
                     continue
-                if cv2.contourArea(cnt) < 0.01 * self.opts.img_size[0]:
+                if cv2.contourArea(cnt) < self.opts.min_area * self.opts.img_size[0]:
                     continue
 
                 rect = cv2.minAreaRect(cnt)
