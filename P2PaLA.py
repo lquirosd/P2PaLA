@@ -864,7 +864,7 @@ def main():
             va_results = page2page_eval.compute_metrics(
                 va_data.hyp_xml_list, va_data.gt_xml_list, opts
             )
-            logger.info("-" * 10 + "VALIDARION RESULTS SUMMARY" + "-" * 10)
+            logger.info("-" * 10 + "VALIDATION RESULTS SUMMARY" + "-" * 10) # /valɪˈdeɪʃ(ə)n/
             logger.info(",".join(va_results.keys()))
             logger.info(",".join(str(x) for x in va_results.values()))
         if not opts.no_display:
