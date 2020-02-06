@@ -266,9 +266,19 @@ class htrDataProcess:
             else:
                 pass
 
-            _, contours, hierarchy = cv2.findContours(
+            #_, contours, hierarchy = cv2.findContours(
+            #    reg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            #)
+            
+            res_ = cv2.findContours(
                 reg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
+            
+            if len(res_) == 2:
+                contours, hierarchy = res_
+            else:
+                _, contours, hierarchy = res_
+            
             for cnt in contours:
                 # --- remove small objects
                 if cnt.shape[0] < 4:
@@ -300,9 +310,20 @@ class htrDataProcess:
                         lin_mask = cv2.dilate(lin_mask, kernel, iterations=1)
                         reg_lines = lines * lin_mask
                         # --- search for the lines
-                        _, l_cont, l_hier = cv2.findContours(
+                        #_, l_cont, l_hier = cv2.findContours(
+                        #    reg_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                        #)
+                        
+                        resl_ = cv2.findContours(
                             reg_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
                         )
+                        
+                        if len(resl_):
+                            contours, hierarchy = resl_
+                        else:
+                            _, contours, hierarchy = resl_
+                        
+                        
                         if len(l_cont) == 0:
                             continue
                         # --- Add region to XML only is there is some line
