@@ -318,10 +318,10 @@ class htrDataProcess:
                             reg_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
                         )
                         
-                        if len(resl_):
-                            contours, hierarchy = resl_
+                        if len(resl_) ==2:
+                            l_cont, l_hier = resl_
                         else:
-                            _, contours, hierarchy = resl_
+                            _, l_cont, l_hier = resl_
                         
                         
                         if len(l_cont) == 0:
