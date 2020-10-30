@@ -812,7 +812,7 @@ def main():
                                         tuple(
                                             (
                                                 data.cpu().float().numpy(),
-                                                v_y_gen[1].data.cpu().float().numpy(),
+                                                v_y_gen[1][idx].data.cpu().float().numpy(),
                                             )
                                         ),
                                         fh,
@@ -823,7 +823,7 @@ def main():
                                         tuple(
                                             (
                                                 data.float().numpy(),
-                                                v_y_gen[1].data.float().numpy(),
+                                                v_y_gen[1][idx].data.float().numpy(),
                                             )
                                         ),
                                         fh,
@@ -1022,7 +1022,7 @@ def main():
                                     tuple(
                                         (
                                             data.cpu().float().numpy(),
-                                            te_y_gen[1].data.cpu().float().numpy(),
+                                            te_y_gen[1][idx].data.cpu().float().numpy(),
                                         )
                                     ),
                                     fh,
@@ -1033,7 +1033,7 @@ def main():
                                     tuple(
                                         (
                                             data.float().numpy(),
-                                            te_y_gen[1].data.float().numpy(),
+                                            te_y_gen[1][idx].data.float().numpy(),
                                         )
                                     ),
                                     fh,
@@ -1232,15 +1232,45 @@ def main():
                 pr_ids = sample["id"]
                 pr_y_gen = nnG(pr_x)
                 if opts.save_prob_mat:
-                    for idx, data in enumerate(pr_y_gen.data):
-                        fh = open(
-                            res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "wb"
-                        )
-                        if opts.use_gpu:
-                            pickle.dump(data.cpu().float().numpy(), fh, -1)
-                        else:
-                            pickle.dump(data.float().numpy(), fh, -1)
-                        fh.close
+                    if opts.out_mode == "LR":
+                        for idx, data in enumerate(pr_y_gen[0].data):
+                            fh = open(
+                                res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "wb"
+                            )
+                            if opts.use_gpu:
+                                pickle.dump(
+                                    tuple(
+                                        (
+                                            data.cpu().float().numpy(),
+                                            pr_y_gen[1][idx].data.cpu().float().numpy(),
+                                        )
+                                    ),
+                                    fh,
+                                    -1,
+                                )
+                            else:
+                                pickle.dump(
+                                    tuple(
+                                        (
+                                            data.float().numpy(),
+                                            pr_y_gen[1][idx].data.float().numpy(),
+                                        )
+                                    ),
+                                    fh,
+                                    -1,
+                                )
+
+                            fh.close()
+                    else:
+                        for idx, data in enumerate(pr_y_gen.data):
+                            fh = open(
+                                res_path + "/prob_mat/" + pr_ids[idx] + ".pickle", "wb"
+                            )
+                            if opts.use_gpu:
+                                pickle.dump(data.cpu().float().numpy(), fh, -1)
+                            else:
+                                pickle.dump(data.float().numpy(), fh, -1)
+                            fh.close
                 if opts.net_out_type == "C":
                     if opts.out_mode == "LR":
                         if opts.do_prior:
