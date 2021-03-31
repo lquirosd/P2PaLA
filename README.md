@@ -95,7 +95,7 @@ tensorboard --logdir ./work/runs
 > We recommend [Transkribus](https://transkribus.eu/Transkribus/) or [nw-page-editor](https://github.com/mauvilsa/nw-page-editor) 
 > to visualize and edit PAGE-xml files.
 
-5. For detail about arguments and config file, see [docs](docs) or `python P2PaLa.py -h`. 
+5. For detail about arguments and config file, see [docs](docs) or `python P2PaLA.py -h`. 
 6. For more detailed example see [egs](egs):
     * Bozen dataset [see](egs/Bozen)
     * cBAD complex competition dataset [see](egs/cBAD_complex)
