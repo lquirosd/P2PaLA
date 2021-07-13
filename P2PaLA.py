@@ -1006,6 +1006,7 @@ def main():
                         .type(torch.FloatTensor)
                         .to(device)
                     )
+            nnG.eval()
             for te_batch, sample in enumerate(test_dataloader):
                 te_x = sample["image"].to(device)
                 te_label = sample["label"].to(device)
@@ -1227,6 +1228,7 @@ def main():
                         .type(torch.FloatTensor)
                         .to(device)
                     )
+            nnG.eval()
             for pr_batch, sample in enumerate(prod_dataloader):
                 pr_x = sample["image"].to(device)
                 pr_ids = sample["id"]
