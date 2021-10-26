@@ -1,6 +1,6 @@
 torch
 torchvision
-opencv-python==3.4.5.20
+opencv-python==3.4.7.28
 future
 numpy
 scipy
