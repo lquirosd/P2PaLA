@@ -1,6 +1,10 @@
 P2PaLA
 ======
 
+:exclamation::exclamation: P2PaLA is deprecated :exclamation::exclamation: 
+
+
+
 [![Python Version](https://img.shields.io/badge/python-2.7%2C%203.6-blue.svg)](https://www.python.org/)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
